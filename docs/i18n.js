@@ -149,12 +149,12 @@ window.WSLBOX_I18N = {
     "zh-CN": "F2 原位重命名，Enter 确认、Esc 取消；Linux 回收站保留可恢复的普通删除。"
   },
   "details.2.title": {
-    "en": "Reused workers for faster response",
-    "zh-CN": "为响应速度复用工作进程"
+    "en": "Responsive file browsing",
+    "zh-CN": "流畅浏览文件"
   },
   "details.2.body": {
-    "en": "Folder reads, thumbnails and app launches use separate workers. Lists load visible rows; hidden boxes pause pending thumbnail work.",
-    "zh-CN": "目录读取、缩略图和应用打开分别处理。列表按可见行加载，隐藏格子后暂停后续缩略图任务。"
+    "en": "Browse folders, preview files with thumbnails and open Linux applications directly from your desktop.",
+    "zh-CN": "在桌面浏览文件夹、查看缩略图并直接打开 Linux 应用。"
   },
   "install.eyebrow": {
     "en": "GET STARTED",
@@ -189,8 +189,8 @@ window.WSLBOX_I18N = {
     "zh-CN": "在 Ubuntu / Debian 的终端执行。其他发行版需要对应的 GIO / GTK 软件包。"
   },
   "install.2.body": {
-    "en": "Run the versioned EXE without any adjacent Python scripts. Choose a distribution and folder in Folder settings.",
-    "zh-CN": "运行版本化 EXE，无需旁边放置 Python 脚本。在文件夹设置中选择发行版和目录。"
+    "en": "Download and run WSLBox. Choose a distribution and folder in Folder settings.",
+    "zh-CN": "下载并运行 WSLBox，在文件夹设置中选择发行版和目录。"
   },
   "install.3.body": {
     "en": "Install your Linux apps and configure their default file associations inside the distribution.",
@@ -221,20 +221,20 @@ window.WSLBOX_I18N = {
     "zh-CN": "你可能还想知道。"
   },
   "faq.0.title": {
-    "en": "Can I share the EXE with someone else?",
-    "zh-CN": "拷贝给其他人就能用吗？"
+    "en": "Which systems are supported?",
+    "zh-CN": "支持哪些系统？"
   },
   "faq.0.body": {
-    "en": "Yes. They still need WSL2 / WSLg, Python, GIO / GTK and the Linux apps they want to use. WSLBox discovers their distribution and home directory; it does not depend on the developer's username or paths. Support for every distribution, ARM64 and Windows Server has not been verified.",
-    "zh-CN": "EXE 可独立分发；对方仍需具备 WSL2 / WSLg、Python、GIO / GTK 和要打开文件的 Linux 应用。发行版与主目录会在对方机器读取，不绑定开发者的用户名或路径。当前尚未承诺所有发行版、ARM64 或 Windows Server 均可用。"
+    "en": "Primarily tested on Windows 11 x64 with Ubuntu WSL2. WSL2 / WSLg and Linux GUI dependencies are required. Other distributions, ARM64 and Windows Server have not received the same validation.",
+    "zh-CN": "主要验证环境为 Windows 11 x64 + Ubuntu WSL2。需要 WSL2 / WSLg 和 Linux 图形依赖；其他发行版、ARM64 和 Windows Server 尚未完成相同覆盖的验证。"
   },
   "faq.1.title": {
-    "en": "Do I need LXDE or a full Linux desktop?",
-    "zh-CN": "需要运行 LXDE 或其他完整桌面吗？"
+    "en": "Do I need a full Linux desktop?",
+    "zh-CN": "需要完整的 Linux 桌面吗？"
   },
   "faq.1.body": {
-    "en": "No. GUI apps appear through WSLg. X11 apps run through XWayland; apps that support Wayland keep their own backend.",
-    "zh-CN": "不需要。图形应用通过 WSLg 显示，X11 应用通过 XWayland 运行，支持 Wayland 的应用保留相应后端。"
+    "en": "WSLBox runs Linux GUI applications directly through WSLg.",
+    "zh-CN": "WSLBox 通过 WSLg 直接启动 Linux 图形应用。"
   },
   "faq.2.title": {
     "en": "Where can I restore deleted files?",
@@ -249,8 +249,8 @@ window.WSLBOX_I18N = {
     "zh-CN": "图标模式和 Windows 文件操作有什么限制？"
   },
   "faq.3.body": {
-    "en": "Icon view still has room for improvement with very large directories. Windows Shell cannot fully preserve all Linux permissions, extended attributes or special-file properties. Dragging out and cutting symbolic links have protective restrictions.",
-    "zh-CN": "图标模式的超大目录仍有优化空间；Windows Shell 不完整保留所有 Linux 权限、扩展属性和特殊文件语义。符号链接的拖出和剪切有保护限制。"
+    "en": "List view is recommended for very large directories. Cross-system file operations may not preserve all Linux permissions or file attributes. Symlinks can be opened, but drag-out and cut have restrictions.",
+    "zh-CN": "文件特别多时建议使用列表视图。跨系统文件操作可能无法保留全部 Linux 权限或文件属性。符号链接支持打开，拖出和剪切存在限制。"
   },
   "faq.4.title": {
     "en": "What does the icon mean?",

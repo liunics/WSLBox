@@ -163,10 +163,10 @@ jobs:
           $lines = @(
             '## English', '', $en, '',
             "[Changelog]($base/CHANGELOG.md)", '',
-            "Download ``WSLBox-v$env:APP_VERSION.exe`` to run WSLBox. WSL2/WSLg is required; install Python3, GIO/GTK, D-Bus and the target Linux applications inside the selected distribution. Source archives do not include the website.", '',
+            "Download ``WSLBox-v$env:APP_VERSION.exe`` to run WSLBox. WSL2/WSLg is required; install Python3, GIO/GTK, D-Bus and the target Linux applications inside the selected distribution.", '',
             '## 简体中文', '', $zh, '',
             "[更新记录]($base/CHANGELOG.zh-CN.md)", '',
-            "下载 ``WSLBox-v$env:APP_VERSION.exe`` 运行 WSLBox。需要 WSL2/WSLg，并在所选 Linux 发行版中安装 Python3、GIO/GTK、D-Bus 和目标应用程序。源码压缩包不包含介绍页。", ''
+            "下载 ``WSLBox-v$env:APP_VERSION.exe`` 运行 WSLBox。需要 WSL2/WSLg，并在所选 Linux 发行版中安装 Python3、GIO/GTK、D-Bus 和目标应用程序。", ''
           )
           [IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE 'release-assets/release-notes.md'), ($lines -join "`n"), (New-Object Text.UTF8Encoding($false)))
       - name: Publish verified cloud build

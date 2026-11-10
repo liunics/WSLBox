@@ -4,50 +4,51 @@
 <p align="center">Linux folders on your Windows desktop.</p>
 <p align="center"><a href="https://liunics.github.io/WSLBox/">Website</a> · <a href="https://github.com/liunics/WSLBox/releases">Download</a> · <a href="https://github.com/liunics/WSLBox/issues">Report an issue</a></p>
 
-WSLBox displays WSL2 folders in transparent Windows desktop boxes. Browse Linux files, drag and drop them to and from Windows Explorer, and open them with Linux applications through WSLg. A full Linux desktop is not required.
+WSLBox displays WSL2 folders in transparent Windows desktop boxes. Browse Linux files, transfer them to and from Windows Explorer, and open them with their default Linux applications through WSLg.
 
 ![WSLBox desktop box](assets/window-en.png)
 
 ## Download and run
 
-Download **`WSLBox-v<version>.exe`** from [Releases](https://github.com/liunics/WSLBox/releases) and run it. The Linux backend, language catalog, and icon are embedded; no adjacent `backend.py` is needed. `Source code (zip)` is for inspecting or building the source.
+Download **[WSLBox-v1.0.0.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
 
-On first launch, WSLBox discovers installed distributions and the Linux home directory. Use **Folder settings** to choose a distribution and folder. No developer-specific username or path is required.
-
-Primarily tested on **Windows 11 x64 with Ubuntu WSL2**. ARM64, Windows Server, and other distributions have not received the same validation.
+Open **Folder settings**, choose a WSL distribution and the folder to display, and give the box a name.
 
 ## Requirements
 
-- Windows 11, or a Windows 10 version supporting WSLg (Microsoft specifies build 19044 or later).
+- Windows 11, or Windows 10 build 19044 or later with WSLg support.
 - A working WSL2 distribution and WSLg installation.
-- `/usr/bin/python3`, GIO / GTK 3, and D-Bus inside Linux.
-- Your Linux applications and their file associations installed in that distribution.
+- Python 3, GIO / GTK 3 and D-Bus inside the Linux distribution.
+- The Linux applications you want to use, with their default file associations configured.
 
-Ubuntu / Debian example:
+For Ubuntu / Debian, install the dependencies in a Linux terminal:
 
 ```bash
 sudo apt update
 sudo apt install python3 python3-gi gir1.2-gtk-3.0 dbus libglib2.0-bin libgdk-pixbuf2.0-bin
 ```
 
-The last package provides thumbnail generation; some formats also need a corresponding `.thumbnailer`. A Linux file manager such as PCManFM or Nautilus can browse and restore the Linux trash.
+Thumbnail support varies by file format. A Linux file manager such as PCManFM or Nautilus can restore files from Linux Trash.
 
-[Microsoft WSLg setup instructions](https://learn.microsoft.com/windows/wsl/tutorials/gui-apps)
+[Microsoft WSLg setup guide](https://learn.microsoft.com/windows/wsl/tutorials/gui-apps)
 
 ## Features
 
-- Multiple independent boxes with transparency, icon/list views, sorting, filtering, thumbnails, locking, edge snapping, and collapse/expand.
-- Double-click an empty area of the Windows desktop to hide/show boxes; disable this from the tray menu if preferred.
-- Windows/WSL drag and drop, with native Windows conflict and progress dialogs for copy, cut, and paste.
-- Linux default applications and **Linux Open with**, including an explicit option to change the Linux default.
-- Inline rename and Linux trash. If trash is unsupported, the file is preserved and an error is shown.
-- Reused metadata/thumbnail workers, coalesced concurrent reads, virtualized lists, and idle read-worker cleanup.
+- Multiple independent boxes with saved folders, positions and sizes.
+- Adjustable background transparency, icon and list views, sorting, filtering and thumbnails.
+- Lock, collapse, maximize and restore boxes; snap to screen edges and neighboring boxes.
+- Double-click empty Windows desktop space to hide or show all boxes.
+- Drag and drop, copy, cut and paste files between Windows and WSL.
+- Open files with Linux default applications or choose another application with **Linux Open with**.
+- Rename in place, create folders and move deleted files to Linux Trash.
+- Windows file context menus with Linux actions grouped separately.
+- Mouse back/forward navigation, keyboard shortcuts and copying Linux paths.
+- English, Simplified Chinese and system-language options.
+- Project link, update checking and grouped shortcut tables in Help.
 
-## Language and icon
+## Language
 
-Choose **System**, **简体中文**, or **English** in **Folder settings** or **Language / 语言** in the menu. The preference applies to all boxes after restarting WSLBox. It does not change Linux locale, theme, or display protocol. Native Windows menus/dialogs follow Windows; external Linux applications retain their own language settings.
-
-The original vector icon combines a folder, a small penguin, four Windows-style panes, and a right arrow to represent connecting Windows to Linux files.
+Choose **System**, **简体中文** or **English** from **Language / 语言** in the menu. Restart WSLBox to apply the preference to all boxes.
 
 ## Common actions
 
@@ -56,34 +57,38 @@ The original vector icon combines a folder, a small penguin, four Windows-style 
 | Open a file / enter a directory | Double-click or Enter |
 | Open the current directory in Windows Explorer | Double-click empty space inside a box |
 | Copy the current Linux directory path | Header copy button |
-| Return to the configured root | Alt+Home |
+| Return to the configured folder | Alt+Home |
 | Back / forward | Mouse side buttons or Alt+Left / Right |
 | Refresh | F5 or Ctrl+R |
 | Rename | F2; Enter to confirm, Esc to cancel |
 | Select all | Ctrl+A |
 | New folder | Ctrl+Shift+N |
 | New box | Ctrl+N |
-| Move to Linux trash | Delete |
+| Move to Linux Trash | Delete |
 | Permanently delete | Shift+Delete, with confirmation |
 | Folder settings | Ctrl+L |
 
-Dragging in copies by default; hold Shift to move. Help is available from the menu and does not reserve F1. Settings are stored separately from the executable at `%LOCALAPPDATA%\WSLBox\layout.json`.
+Dropping files into a box copies them by default; hold Shift to move. Open **Help and shortcuts** from the menu for the complete guide.
 
-## Portability and limitations
+## Linux input methods
 
-You can share the single EXE with others who have the required environment. It does not bundle WSL, a Python interpreter, Linux graphical libraries, the target Linux applications, or your box configuration.
+WSLBox supports Fcitx, Fcitx5 and IBus configured inside the selected Linux distribution. Install and configure your preferred input method there, then open applications from WSLBox. Restart WSLBox and the affected applications after changing the input-method configuration.
 
-- Hidden files are currently excluded.
-- Symlinks can be opened; drag-out and cut have protective restrictions. Windows file operations cannot fully preserve every Linux permission, extended attribute, hard link, or special-file property.
-- List mode is virtualized; icon mode still has room for improvement with very large directories.
-- Native context-menu speed and compatibility depend on installed Windows Shell extensions.
-- Boxes are transparent WPF windows, not embedded into Explorer's desktop layer. Special Win+D handling and login autostart are not provided.
-- Releases are not commercially code-signed. Download from this repository and compare the executable against `SHA256SUMS.txt` if desired.
+Some applications disable input methods internally and require application-specific handling.
+
+## Compatibility and limitations
+
+- Primarily tested on Windows 11 x64 with Ubuntu WSL2. Other distributions, ARM64 and Windows Server have not received the same validation.
+- Hidden files are currently excluded. List view is recommended for very large directories.
+- Cross-system file operations may not preserve all Linux permissions, extended attributes or special-file properties. Symlinks can be opened, but drag-out and cut have restrictions.
+- Third-party context-menu features depend on the installed Windows applications.
+- Permanent deletion requires confirmation. If Linux Trash is unavailable, files are preserved and an error is shown.
+- Login autostart and special handling for Win+D are not currently supported.
 
 <details>
-<summary>Optional troubleshooting: check runtime dependencies</summary>
+<summary>Troubleshooting: check runtime dependencies</summary>
 
-This is not required for normal use. If an application cannot start, run the commands below in **Windows PowerShell**, from the folder containing the downloaded EXE. The EXE creates the temporary report; no pre-existing JSON file is required. Source downloads do not contain the compiled EXE.
+If an application cannot start, open **Windows PowerShell** in the folder containing WSLBox and run:
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
@@ -91,22 +96,12 @@ Start-Process ".\WSLBox-v1.0.0.exe" -ArgumentList @("--diagnose", "`"$report`"")
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 
-Only the check table is displayed. Passing these checks confirms basic dependencies; it does not guarantee every Linux application or input method is configured correctly.
-
 </details>
 
-## Linux input methods
+## Source code and license
 
-WSLBox follows an explicitly configured Fcitx, Fcitx5 or IBus selection, reuses an existing WSLg service, or starts the selected service on demand. Input methods are optional: a missing service or startup failure does not prevent an application from opening; a status hint and diagnostics are available. Applications retain their native Wayland/X11 backend.
+Application source is in [src/](src/). Source archives are available from [Releases](https://github.com/liunics/WSLBox/releases).
 
-Install the input-method frontend required by each target toolkit inside Linux. Restart WSLBox and the affected app after changing the Linux input-method selection. Some applications disable input methods internally and require application-specific handling.
+[Changelog](CHANGELOG.md) · [GNU GPL v3](LICENSE)
 
-## Source code
-
-Application source is in `src/`. The source ZIP is available from Releases; to use the software, download the EXE.
-
-[Changelog](CHANGELOG.md)
-
-## License
-
-WSLBox is licensed under the [GNU GPL v3](LICENSE). WSLBox is not an official Microsoft product.
+WSLBox is not an official Microsoft product.
