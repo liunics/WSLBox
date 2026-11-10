@@ -71,7 +71,7 @@ sudo apt install python3 python3-gi gir1.2-gtk-3.0 dbus libglib2.0-bin libgdk-pi
 
 ## 通用性与限制
 
-可以把单个 EXE 拷给具备上述环境的人。它不包含 WSL、Linux 图形库或 Flair/gedit 等应用，也不包含你的格子配置。
+可以把单个 EXE 拷给具备上述环境的人。它不包含 WSL、Linux 图形库或 目标 Linux 应用，也不包含你的格子配置。
 
 - 隐藏文件暂不显示。
 - 符号链接允许打开，拖出和剪切有保护限制；Windows 文件操作不能完整保留全部 Linux 权限、扩展属性、硬链接或特殊文件语义。
@@ -99,7 +99,7 @@ Start-Process ".\WSLBox-v1.0.0.exe" -ArgumentList @("--diagnose", "`"$report`"")
 
 WSLBox 跟随 Linux 中明确配置的 Fcitx、Fcitx5 或 IBus，复用已有的 WSLg 输入法服务，或按需启动所选服务。输入法是可选功能：缺少服务或启动失败不会阻止应用打开，可查看状态提示与环境诊断。应用保留原生 Wayland/X11 后端。
 
-目标应用所需的 GTK、Qt 等输入法前端应在 Linux 中安装。更改 Linux 输入法选择后，重启 WSLBox 和目标应用。部分 Flair 版本会在内部禁用输入法，仍需单独处理该应用。
+目标应用所需的 GTK、Qt 等输入法前端应在 Linux 中安装。更改 Linux 输入法选择后，重启 WSLBox 和目标应用。某些软件会在内部禁用输入法，仍需针对该软件单独处理。
 
 ## 源码
 

@@ -233,8 +233,8 @@ window.WSLBOX_I18N = {
     "zh-CN": "需要运行 LXDE 或其他完整桌面吗？"
   },
   "faq.1.body": {
-    "en": "No. GUI apps appear through WSLg. X11 apps such as Flair run through XWayland; apps that support Wayland keep their own backend.",
-    "zh-CN": "不需要。图形应用通过 WSLg 显示，Flair 等 X11 应用通过 XWayland 运行，支持 Wayland 的应用保留相应后端。"
+    "en": "No. GUI apps appear through WSLg. X11 apps run through XWayland; apps that support Wayland keep their own backend.",
+    "zh-CN": "不需要。图形应用通过 WSLg 显示，X11 应用通过 XWayland 运行，支持 Wayland 的应用保留相应后端。"
   },
   "faq.2.title": {
     "en": "Where can I restore deleted files?",

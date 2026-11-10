@@ -71,7 +71,7 @@ Dragging in copies by default; hold Shift to move. Help is available from the me
 
 ## Portability and limitations
 
-You can share the single EXE with others who have the required environment. It does not bundle WSL, a Python interpreter, Linux graphical libraries, Flair/gedit, or your box configuration.
+You can share the single EXE with others who have the required environment. It does not bundle WSL, a Python interpreter, Linux graphical libraries, the target Linux applications, or your box configuration.
 
 - Hidden files are currently excluded.
 - Symlinks can be opened; drag-out and cut have protective restrictions. Windows file operations cannot fully preserve every Linux permission, extended attribute, hard link, or special-file property.
@@ -99,7 +99,7 @@ Only the check table is displayed. Passing these checks confirms basic dependenc
 
 WSLBox follows an explicitly configured Fcitx, Fcitx5 or IBus selection, reuses an existing WSLg service, or starts the selected service on demand. Input methods are optional: a missing service or startup failure does not prevent an application from opening; a status hint and diagnostics are available. Applications retain their native Wayland/X11 backend.
 
-Install the input-method frontend required by each target toolkit inside Linux. Restart WSLBox and the affected app after changing the Linux input-method selection. Apps that explicitly disable input methods internally, such as some Flair versions, need separate application-level handling.
+Install the input-method frontend required by each target toolkit inside Linux. Restart WSLBox and the affected app after changing the Linux input-method selection. Some applications disable input methods internally and require application-specific handling.
 
 ## Source code
 

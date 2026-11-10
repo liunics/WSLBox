@@ -25,7 +25,7 @@ Initial public release.
 - Pass input-method settings to newly launched apps and the private D-Bus activation environment while retaining xrdp isolation and native application display backends.
 - Keep applications opening when no input method is configured, a selected daemon is missing, or startup fails; provide localized status hints and optional diagnostics.
 - Cache initialization and service checks to avoid rescanning or starting processes for every file open.
-- Input methods disabled inside an application, including some Flair versions, still require application-specific handling.
+- Some applications disable input methods internally and require application-specific handling.
 - Use the WSLBox name throughout the application and save settings in the dedicated WSLBox directory.
 - Add a project hyperlink and on-demand update checking to About, with modern TLS defaults and detailed connection errors.
 - Keep UI language global, simplify folder settings, center update controls and present bilingual help as grouped shortcut tables.
