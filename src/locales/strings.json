@@ -1180,7 +1180,31 @@
     "en-US": "Notes"
   },
   "help.notes": {
-    "zh-CN": "• 吸附阈值约为 12 个逻辑像素，在菜单中可统一关闭屏幕及格子边缘吸附。\n• 鼠标触到屏幕顶部后松开可最大化，左右边缘可切换半屏；与窗口边缘吸附独立。\n• 进入子目录不会修改设置的根目录；重新打开格子从设置目录开始。\n• 菜单中可打开 Linux 回收站、选择 Linux 打开方式、调整背景透明度。\n• 每个格子分别保存文件夹、视图、排序、位置、透明度和收起状态；语言设置对全部格子生效。",
-    "en-US": "• Magnetism uses a threshold of about 12 logical pixels. Its menu switch controls screen-edge and box-edge snapping together.\n• Release the pointer at the top screen edge to maximize, or at a side edge for half-screen layout. This is independent of edge magnetism.\n• Browsing subfolders does not change the configured root. Reopening starts at that root.\n• Use the menu for Linux Trash, Linux Open With, and background opacity.\n• Each box saves its own folder, view, sorting, position, opacity and collapsed state. Language is global."
+    "zh-CN": "• 吸附阈值约为 12 个逻辑像素，在菜单中可统一关闭屏幕及格子边缘吸附。\n• 鼠标触到屏幕顶部后松开可最大化，左右边缘可切换半屏；与窗口边缘吸附独立。\n• 进入子目录不会修改设置的根目录；重新打开格子从设置目录开始。\n• 菜单中可打开 Linux 回收站、选择 Linux 打开方式、调整背景透明度。\n• 每个格子分别保存文件夹、视图、排序、位置、透明度和收起状态；语言设置对全部格子生效。\n• 登录时启动为全局选项，可从托盘或格子菜单设置。",
+    "en-US": "• Magnetism uses a threshold of about 12 logical pixels. Its menu switch controls screen-edge and box-edge snapping together.\n• Release the pointer at the top screen edge to maximize, or at a side edge for half-screen layout. This is independent of edge magnetism.\n• Browsing subfolders does not change the configured root. Reopening starts at that root.\n• Use the menu for Linux Trash, Linux Open With, and background opacity.\n• Each box saves its own folder, view, sorting, position, opacity and collapsed state. Language is global.\n• Start at login is a global option in the tray or box menu."
+  },
+  "ui.show_hidden": {
+    "zh-CN": "显示隐藏文件",
+    "en-US": "Show hidden files"
+  },
+  "startup.label": {
+    "zh-CN": "登录时启动",
+    "en-US": "Start at login"
+  },
+  "startup.hint": {
+    "zh-CN": "使用当前 EXE 位置。移动程序后，请关闭并重新开启此选项。",
+    "en-US": "Uses the current EXE location. Turn this option off and on again after moving the app."
+  },
+  "startup.failed": {
+    "zh-CN": "无法设置登录启动：{0}",
+    "en-US": "Unable to change start-at-login settings: {0}"
+  },
+  "startup.folder_unavailable": {
+    "zh-CN": "无法获取当前用户的启动文件夹。",
+    "en-US": "The current user startup folder is unavailable."
+  },
+  "startup.executable_unavailable": {
+    "zh-CN": "找不到当前程序文件。",
+    "en-US": "The current executable could not be found."
   }
 }

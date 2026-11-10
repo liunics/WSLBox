@@ -14,6 +14,7 @@ namespace WSLBox
         [DataMember(EmitDefaultValue = false)] public string Path;
         [DataMember(EmitDefaultValue = false)] public string Application;
         [DataMember(EmitDefaultValue = false)] public bool SetDefault;
+        [DataMember(EmitDefaultValue = false)] public bool ShowHidden;
     }
     internal sealed class OpenWorker : IDisposable
     {
@@ -77,7 +78,7 @@ namespace WSLBox
         }
         public Reply Open(string path, string application = null, bool setDefault = false)
         { return Request("open", path, application, setDefault); }
-        public Reply Request(string command, string path, string application = null, bool setDefault = false)
+        public Reply Request(string command, string path, string application = null, bool setDefault = false, bool showHidden = false)
         {
             lock (gate)
             {
@@ -92,7 +93,7 @@ namespace WSLBox
                     }
                     try
                     {
-                        byte[] request = Encoding.UTF8.GetBytes(Json.Write(new OpenRequest { Command = command, Path = path, Application = application, SetDefault = setDefault }) + "\n");
+                        byte[] request = Encoding.UTF8.GetBytes(Json.Write(new OpenRequest { Command = command, Path = path, Application = application, SetDefault = setDefault, ShowHidden = showHidden }) + "\n");
                         current.StandardInput.BaseStream.Write(request, 0, request.Length);
                         current.StandardInput.BaseStream.Flush();
                         return ReadReply(current, stderr, command == "trash" ? 120000 : mode == "serve-open" ? 16000 : 20000);

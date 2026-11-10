@@ -124,6 +124,11 @@ namespace WSLBox
                 Save();
             };
             menu.Items.Add(desktopOption);
+            var startup = new Forms.ToolStripMenuItem(L10n.T("startup.label")) { Checked = StartupRegistration.IsEnabled,
+                ToolTipText = L10n.T("startup.hint") };
+            startup.Click += (s, e) => { SetStartAtLogin(!StartupRegistration.IsEnabled); startup.Checked = StartupRegistration.IsEnabled; };
+            menu.Opening += (s, e) => startup.Checked = StartupRegistration.IsEnabled;
+            menu.Items.Add(startup);
             menu.Items.Add(L10n.T("ui.new_box_5cc522"), null, (s, e) => CreateBox(windows.FirstOrDefault()));
             menu.Items.Add(L10n.T("ui.help"), null, (s, e) => Dialogs.Help(windows.FirstOrDefault(w => w.IsVisible)));
             menu.Items.Add(L10n.T("ui.about_wslbox"), null, (s, e) => Dialogs.About(windows.FirstOrDefault(w => w.IsVisible)));
@@ -156,6 +161,11 @@ namespace WSLBox
             return windows.Where(window => window != moving && window.IsVisible && !window.IsClosing
                 && window.WindowState != WindowState.Minimized).Select(window => window.BoundsIn(moving)).ToArray();
         }
+        public void SetStartAtLogin(bool enabled)
+        {
+            try { StartupRegistration.SetEnabled(enabled); }
+            catch (Exception ex) { MessageBox.Show(L10n.F("startup.failed", ex.Message), "WSLBox", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }
         public void OpenSaved() { foreach (Settings box in layout.Boxes.ToArray()) Open(box, true); }
         private void Open(Settings box, bool background = false)
         {
@@ -181,7 +191,7 @@ namespace WSLBox
                 X = original.X + 36, Y = original.Y + 36, Width = original.Width, Height = original.Height,
                 Bounds = original.Bounds == null ? null : new SavedWindowBounds { Left = original.Bounds.Left + 36, Top = original.Bounds.Top + 36, Width = original.Bounds.Width, Height = original.Bounds.Height },
                 BackgroundOpacity = original.BackgroundOpacity, ViewMode = original.ViewMode, IconSize = original.IconSize,
-                SortBy = original.SortBy, SortDescending = original.SortDescending, ShowThumbnails = original.ShowThumbnails
+                SortBy = original.SortBy, SortDescending = original.SortDescending, ShowThumbnails = original.ShowThumbnails, ShowHidden = original.ShowHidden
             };
             box.Normalize(); layout.Boxes.Add(box); Open(box); Save();
         }

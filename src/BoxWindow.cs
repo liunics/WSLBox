@@ -429,9 +429,11 @@ namespace WSLBox
             menu.Items.Add(views); menu.Items.Add(sorts);
             var thumbs = new MenuItem { Header = L10n.T("ui.show_thumbnails"), IsCheckable = true, IsChecked = settings.ShowThumbnails != false };
             thumbs.Click += async (s, e) => await ToggleThumbnails();
-            views.Items.Add(new Separator()); views.Items.Add(thumbs);
+            var hidden = new MenuItem { Header = L10n.T("ui.show_hidden"), InputGestureText = "Ctrl+H", IsCheckable = true, IsChecked = settings.ShowHidden };
+            hidden.Click += async (sender, e) => await ToggleHidden();
+            views.Items.Add(new Separator()); views.Items.Add(thumbs); views.Items.Add(hidden);
             menu.Opened += (s, e) => {
-                thumbs.IsChecked = settings.ShowThumbnails != false;
+                thumbs.IsChecked = settings.ShowThumbnails != false; hidden.IsChecked = settings.ShowHidden;
                 foreach (MenuItem item in choices)
                 {
                     ShellMenuAction action = (ShellMenuAction)item.Tag;
@@ -460,6 +462,11 @@ namespace WSLBox
             menu.Items.Add(snap);
             AddMenu(menu, L10n.T("ui.new_box_ctrl_n_ff9436"), () => { NewBox(); return Done(); });
             menu.Items.Add(new Separator());
+            var startup = new MenuItem { Header = L10n.T("startup.label"), ToolTip = L10n.T("startup.hint"),
+                IsCheckable = true, IsEnabled = workspace != null, IsChecked = StartupRegistration.IsEnabled };
+            startup.Click += (sender, e) => { if (workspace != null) workspace.SetStartAtLogin(startup.IsChecked); startup.IsChecked = StartupRegistration.IsEnabled; };
+            menu.Opened += (sender, e) => startup.IsChecked = StartupRegistration.IsEnabled;
+            menu.Items.Add(startup);
             menu.Items.Add(L10n.LanguageMenu(() => workspace == null ? L10n.Preference : workspace.LanguagePreference, value => {
                 if (workspace != null) workspace.SetLanguage(value);
             }));
@@ -569,6 +576,7 @@ namespace WSLBox
             else if (action == ShellMenuAction.Home) await Home();
             else if (action == ShellMenuAction.Refresh) await RefreshFolder(true);
             else if (action == ShellMenuAction.ToggleThumbnails) await ToggleThumbnails();
+            else if (action == ShellMenuAction.ToggleHidden) await ToggleHidden();
             else ApplyViewSort(action);
             await RefreshFolder(false);
         }
@@ -908,12 +916,19 @@ namespace WSLBox
             catch { } // Keep type icons; metadata refresh controls retry/backoff.
             finally { if (thumbnailRunning == generation) thumbnailRunning = -1; }
         }
-        private async Task ToggleThumbnails()
+        private Task ToggleThumbnails() { return ToggleListing(false); }
+        private Task ToggleHidden() { return ToggleListing(true); }
+        private async Task ToggleListing(bool hidden)
         {
-            if (busy || !initialized) return;
-            settings.ShowThumbnails = settings.ShowThumbnails == false;
+            if (busy || !initialized || closing) return;
+            if (hidden) settings.ShowHidden = !settings.ShowHidden;
+            else settings.ShowThumbnails = settings.ShowThumbnails == false;
             ++thumbnailGeneration; listedEntries = null; Persist(); busy = true;
-            try { ShowEntries(await wsl.Run(settings.Distro, ListCommand, currentFolder)); }
+            try
+            {
+                Reply reply = await wsl.Run(settings.Distro, ListCommand, currentFolder, settings.ShowHidden);
+                if (!closing) ShowEntries(reply);
+            }
             catch (Exception ex) { Report(ex); }
             finally { busy = false; }
         }
@@ -955,11 +970,11 @@ namespace WSLBox
             listing = true;
             string requested = currentFolder, distro = settings.Distro;
             if (explicitRequest) Notify(L10n.T("ui.reading_the_folder"), false);
+            string command = ListCommand; bool showHidden = settings.ShowHidden;
             try
             {
-                string command = ListCommand;
-                Reply reply = await wsl.Run(distro, command, requested);
-                if (command != ListCommand) return;
+                Reply reply = await wsl.Run(distro, command, requested, showHidden);
+                if (command != ListCommand || showHidden != settings.ShowHidden) return;
                 if (closing || busy || dragging || contextOpen || renameEditor != null || (!explicitRequest && !IsVisible)
                     || requested != currentFolder || distro != settings.Distro) return;
                 ShowEntries(reply); lastError = "";
@@ -967,7 +982,7 @@ namespace WSLBox
             }
             catch (Exception ex)
             {
-                if (closing || renameEditor != null || requested != currentFolder || distro != settings.Distro) return;
+                if (closing || command != ListCommand || showHidden != settings.ShowHidden || renameEditor != null || requested != currentFolder || distro != settings.Distro) return;
                 models.Clear(); list.ItemsSource = null; listedEntries = null;
                 Notify(L10n.T("ui.read_failed") + ex.Message);
                 if (explicitRequest && lastError != ex.Message) Report(ex);
@@ -981,7 +996,7 @@ namespace WSLBox
             busy = true; Notify(L10n.T("ui.opening_the_folder"), false);
             try
             {
-                Reply reply = await wsl.Run(settings.Distro, ListCommand, path);
+                Reply reply = await wsl.Run(settings.Distro, ListCommand, path, settings.ShowHidden);
                 if (closing) return false;
                 ShowEntries(reply);
                 if (historyStep < 0) history.CommitBack();
@@ -1011,7 +1026,7 @@ namespace WSLBox
             busy = true; Notify(L10n.T("ui.checking_the_folder"), false);
             try
             {
-                Reply reply = await wsl.Run(dialog.Distro, ListCommand, dialog.Folder);
+                Reply reply = await wsl.Run(dialog.Distro, ListCommand, dialog.Folder, settings.ShowHidden);
                 if (closing) return;
                 settings.Distro = dialog.Distro; settings.Title = dialog.BoxTitle; settings.Folder = reply.Path;
                 wsl.PrepareOpen(settings.Distro);
@@ -1057,6 +1072,7 @@ namespace WSLBox
             else if (key == Key.Delete && !ctrl && !alt) await DeleteSelected((Keyboard.Modifiers & ModifierKeys.Shift) != 0);
             else if (key == Key.F2 && !ctrl && !alt) await RenameSelected();
             else if (ctrl && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && key == Key.N) await NewFolder();
+            else if (ctrl && key == Key.H) await ToggleHidden();
             else if (ctrl && key == Key.A) list.SelectAll();
             else if (ctrl && key == Key.C) CopySelected(false);
             else if (ctrl && key == Key.X) CopySelected(true);

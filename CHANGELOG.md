@@ -2,6 +2,11 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.1.0
+
+- Add a per-box Show hidden files option and Ctrl+H shortcut.
+- Add an optional global Start at login setting.
+
 ## 1.0.0
 
 Initial public release.

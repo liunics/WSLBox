@@ -272,7 +272,7 @@ namespace WSLBox
             HelpTable(content, "help.navigation", new[,] {
                 { "help.back", "help.back_gesture" }, { "help.forward", "help.forward_gesture" },
                 { "help.parent", "Backspace / Alt+↑" }, { "help.home", "Alt+Home" },
-                { "help.refresh", "F5 / Ctrl+R" }, { "help.icons", "Ctrl+1" }, { "help.list", "Ctrl+2" },
+                { "help.refresh", "F5 / Ctrl+R" }, { "help.icons", "Ctrl+1" }, { "help.list", "Ctrl+2" }, { "ui.show_hidden", "Ctrl+H" },
                 { "help.folder_settings", "Ctrl+L" }, { "help.explorer", "help.explorer_gesture" } });
             HelpTable(content, "help.transfer", new[,] {
                 { "help.drop_copy", "help.drop_gesture" }, { "help.drop_move", "help.drop_move_gesture" },

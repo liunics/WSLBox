@@ -75,7 +75,7 @@ jobs:
           $localeData = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($backendCatalog | ConvertTo-Json -Depth 5 -Compress)))
           $preamble = "import json,base64`nWSLBOX_TRANSLATIONS=json.loads(base64.b64decode('" + $localeData + "'))`n"
           [IO.File]::WriteAllText($runtime, $preamble + $inputMethods + "`n" + $helper + "`n" + $backend, (New-Object Text.UTF8Encoding($false)))
-          $sources = @('Core.cs', 'IconArtwork.cs', 'L10n.cs', 'OpenWorker.cs', 'Shell.cs', 'ShellContextMenu.cs', 'Program.cs', 'BoxWindow.cs', 'WindowGeometry.cs', 'FileOrdering.cs', 'FileActions.cs', 'InlineRename.cs', 'OpenWithDialog.cs', 'Dialogs.cs', 'WslSetup.cs', 'DesktopToggle.cs', 'Theme.cs', 'Branding.cs', 'SnapPreview.cs', 'UpdateService.cs', 'WindowEffects.cs') | ForEach-Object { Join-Path $src $_ }
+          $sources = @('Core.cs', 'IconArtwork.cs', 'L10n.cs', 'OpenWorker.cs', 'Shell.cs', 'ShellContextMenu.cs', 'Program.cs', 'BoxWindow.cs', 'WindowGeometry.cs', 'FileOrdering.cs', 'FileActions.cs', 'InlineRename.cs', 'OpenWithDialog.cs', 'Dialogs.cs', 'WslSetup.cs', 'DesktopToggle.cs', 'Theme.cs', 'Branding.cs', 'SnapPreview.cs', 'UpdateService.cs', 'WindowEffects.cs', 'StartupRegistration.cs') | ForEach-Object { Join-Path $src $_ }
           $framework = Split-Path $compiler -Parent
           $wpf = Join-Path $framework 'WPF'
           $references = @('PresentationCore.dll', 'PresentationFramework.dll', 'WindowsBase.dll') | ForEach-Object { '/reference:' + (Join-Path $wpf $_) }

@@ -93,6 +93,7 @@ namespace WSLBox
         [DataMember] public string MaximizeReturnEdge = "";
         [DataMember] public bool? SnapToEdges = true;
         [DataMember] public bool? ShowThumbnails = true;
+        [DataMember] public bool ShowHidden;
         [DataMember] public double BackgroundOpacity = 0.64;
 
         public void Normalize()
@@ -304,7 +305,7 @@ namespace WSLBox
             return Task.Run(() => Worker(distro).Open(path, application, setDefault));
         }
 
-        public Task<Reply> Run(string distro, string command, string path)
+        public Task<Reply> Run(string distro, string command, string path, bool showHidden = false)
         {
             if (command == "open") return Task.Run(() => Worker(distro).Open(path));
             if (command == "open-trash") return Task.Run(() => Worker(distro).Request(command, path));
@@ -314,13 +315,13 @@ namespace WSLBox
             bool readOnly = command == "list" || command == "list-icons" || command == "info"
                 || command == "folder-info" || command == "applications" || command == "thumbnails";
             if (!readOnly) return Task.Run(() => Worker(distro, mode).Request(command, path));
-            string key = distro + "\n" + scriptKey + "\n" + command + "\n" + path;
+            string key = distro + "\n" + scriptKey + "\n" + command + "\n" + showHidden + "\n" + path;
             lock (workerLock)
             {
                 if (workersClosing) throw new ObjectDisposedException("WslClient");
                 Task<Reply> pending;
                 if (reads.TryGetValue(key, out pending) && !pending.IsCompleted) return pending;
-                pending = Task.Run(() => Worker(distro, mode).Request(command, path));
+                pending = Task.Run(() => Worker(distro, mode).Request(command, path, showHidden: showHidden));
                 reads[key] = pending;
                 pending.ContinueWith(done => {
                     lock (workerLock)

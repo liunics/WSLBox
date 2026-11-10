@@ -61,7 +61,7 @@ namespace WSLBox
     public enum ShellMenuAction
     {
         None = 0, OpenLinux = 1, Configure = 2, NewBox = 3, Help = 4, Restore = 5, Home = 6, Trash = 7, Rename = 8, PermanentDelete = 9,
-        LargeIcons = 10, MediumIcons = 11, SmallIcons = 12, List = 13, ToggleThumbnails = 14,
+        LargeIcons = 10, MediumIcons = 11, SmallIcons = 12, List = 13, ToggleThumbnails = 14, ToggleHidden = 15,
         SortName = 20, SortSize = 21, SortType = 22, SortModified = 23,
         Ascending = 24, Descending = 25, Refresh = 30, NewFolder = 31, OpenTrash = 32, OpenWithLinux = 33, CloseBox = 34, ExitProgram = 35
     }
@@ -292,6 +292,8 @@ namespace WSLBox
             InsertMenu(view, 4, 0x400 | 0x800, UIntPtr.Zero, null);
             AddOption(view, ShellMenuAction.ToggleThumbnails, L10n.T("ui.show_thumbnails"));
             CheckMenuItem(view, Custom + 14, settings.ShowThumbnails != false ? 8u : 0u);
+            AddOption(view, ShellMenuAction.ToggleHidden, L10n.T("ui.show_hidden"));
+            CheckMenuItem(view, Custom + 15, settings.ShowHidden ? 8u : 0u);
             uint currentView = (uint)(settings.ViewMode == "list" ? ShellMenuAction.List :
                 settings.IconSize == 64 ? ShellMenuAction.LargeIcons : settings.IconSize == 24 ? ShellMenuAction.SmallIcons : ShellMenuAction.MediumIcons);
             CheckMenuRadioItem(view, Custom + 10, Custom + 13, Custom + currentView, 0);

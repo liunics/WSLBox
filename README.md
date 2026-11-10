@@ -10,7 +10,7 @@ WSLBox displays WSL2 folders in transparent Windows desktop boxes. Browse Linux 
 
 ## Download and run
 
-Download **[WSLBox-v1.0.0.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
+Download **[WSLBox-v1.1.0.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
 
 Open **Folder settings**, choose a WSL distribution and the folder to display, and give the box a name.
 
@@ -43,12 +43,18 @@ Thumbnail support varies by file format. A Linux file manager such as PCManFM or
 - Rename in place, create folders and move deleted files to Linux Trash.
 - Windows file context menus with Linux actions grouped separately.
 - Mouse back/forward navigation, keyboard shortcuts and copying Linux paths.
+- Show hidden files per box, with a Ctrl+H shortcut.
+- Optional start at Windows login.
 - English, Simplified Chinese and system-language options.
 - Project link, update checking and grouped shortcut tables in Help.
 
 ## Language
 
 Choose **System**, **简体中文** or **English** from **Language / 语言** in the menu. Restart WSLBox to apply the preference to all boxes.
+
+## Start at login
+
+Enable **Start at login** in the tray or box menu to run WSLBox when you sign in to Windows. This option is off by default. Keep the EXE in a fixed location; turn the option off and on again after moving it.
 
 ## Common actions
 
@@ -67,6 +73,7 @@ Choose **System**, **简体中文** or **English** from **Language / 语言** in
 | Move to Linux Trash | Delete |
 | Permanently delete | Shift+Delete, with confirmation |
 | Folder settings | Ctrl+L |
+| Show or hide hidden files | Ctrl+H |
 
 Dropping files into a box copies them by default; hold Shift to move. Open **Help and shortcuts** from the menu for the complete guide.
 
@@ -79,11 +86,11 @@ Some applications disable input methods internally and require application-speci
 ## Compatibility and limitations
 
 - Primarily tested on Windows 11 x64 with Ubuntu WSL2. Other distributions, ARM64 and Windows Server have not received the same validation.
-- Hidden files are currently excluded. List view is recommended for very large directories.
+- List view is recommended for very large directories.
 - Cross-system file operations may not preserve all Linux permissions, extended attributes or special-file properties. Symlinks can be opened, but drag-out and cut have restrictions.
 - Third-party context-menu features depend on the installed Windows applications.
 - Permanent deletion requires confirmation. If Linux Trash is unavailable, files are preserved and an error is shown.
-- Login autostart and special handling for Win+D are not currently supported.
+- Special handling for Win+D is not currently supported.
 
 <details>
 <summary>Troubleshooting: check runtime dependencies</summary>
@@ -92,7 +99,7 @@ If an application cannot start, open **Windows PowerShell** in the folder contai
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.0.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.1.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 
@@ -103,5 +110,3 @@ Start-Process ".\WSLBox-v1.0.0.exe" -ArgumentList @("--diagnose", "`"$report`"")
 Application source is in [src/](src/). Source archives are available from [Releases](https://github.com/liunics/WSLBox/releases).
 
 [Changelog](CHANGELOG.md) · [GNU GPL v3](LICENSE)
-
-WSLBox is not an official Microsoft product.

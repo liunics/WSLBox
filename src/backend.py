@@ -322,13 +322,13 @@ def folder_path(value):
     return os.path.normpath(value)
 
 
-def list_folder(value, thumbnails=True):
+def list_folder(value, thumbnails=True, show_hidden=False):
     path = folder_path(value)
     entries = []
     icons = LinuxIcons(thumbnails)
     with os.scandir(path) as scan:
         for item in scan:
-            if item.name.startswith("."):
+            if not show_hidden and item.name.startswith("."):
                 continue
             try:
                 is_dir = item.is_dir()
@@ -598,7 +598,7 @@ def diagnose_environment():
             "Home": os.path.expanduser("~"), "Checks": checks}
 
 
-def main(argv):
+def main(argv, show_hidden=False):
     command = argv[0] if argv else "info"
     if command == "doctor":
         return diagnose_environment()
@@ -624,9 +624,9 @@ def main(argv):
             raise ValueError(tr("backend.you_do_not_have_permission_to_read_this_folder_choose_an_accessi"))
         return {"Path": path}
     if command == "list" and len(argv) == 2:
-        return list_folder(argv[1])
+        return list_folder(argv[1], show_hidden=show_hidden)
     if command == "list-icons" and len(argv) == 2:
-        return list_folder(argv[1], False)
+        return list_folder(argv[1], False, show_hidden=show_hidden)
     if command == "thumbnails" and len(argv) == 2:
         return thumbnail_batch(argv[1])
     if command == "open" and len(argv) == 2:
@@ -688,7 +688,10 @@ def serve_metadata(thumbnails=False):
             value = request.get("Path")
             if command != "info" and not isinstance(value, str):
                 raise ValueError("Missing request path")
-            response = main([command] + ([value] if value is not None else []))
+            show_hidden = request.get("ShowHidden", False)
+            if not isinstance(show_hidden, bool):
+                raise ValueError("Invalid hidden-files preference")
+            response = main([command] + ([value] if value is not None else []), show_hidden=show_hidden)
         except Exception as exc:
             response = {"Error": str(exc)}
         print(json.dumps(response, ensure_ascii=False), flush=True)

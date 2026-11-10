@@ -257,8 +257,8 @@ window.WSLBOX_I18N = {
     "zh-CN": "这个图标表示什么？"
   },
   "faq.4.body": {
-    "en": "The folder represents your Linux files. The four panes on the left represent Windows; the arrow points to the penguin to show a connection from Windows to Linux. WSLBox is not an official Microsoft product.",
-    "zh-CN": "文件夹表示 Linux 文件工作区，左侧四格标识代表 Windows，箭头指向右侧的小企鹅，表示从 Windows 连接到 Linux。它不是终端图标，也不代表微软官方产品。"
+    "en": "The folder represents your Linux files. The four panes on the left represent Windows; the arrow points to the penguin to show a connection from Windows to Linux.",
+    "zh-CN": "文件夹表示 Linux 文件工作区，左侧四格标识代表 Windows，箭头指向右侧的小企鹅，表示从 Windows 连接到 Linux。"
   },
   "final.title": {
     "en": "Give your WSL files a place on the desktop.",
