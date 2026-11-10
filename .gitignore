@@ -1,0 +1,64 @@
+# Only these root entries are public; other local files stay on this machine.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/README.zh-CN.md
+!/CHANGELOG.md
+!/CHANGELOG.zh-CN.md
+!/LICENSE
+!/src/
+!/docs/
+!/.github/
+!/assets/
+
+# Compiled builds and release archives (publish binaries via GitHub Releases)
+/build/
+/build-*/
+/dist/
+/artifacts/
+**/bin/
+**/obj/
+*.pdb
+
+# Original Cubbies reference project, kept locally
+/Cubbies/
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+/.venv/
+/venv/
+
+# Test output, coverage and performance runs
+/test-output/
+/test-results/
+/coverage/
+.pytest_cache/
+.coverage
+.coverage.*
+/junit.xml
+/performance.json
+
+# Machine-specific settings and editor state
+/.vs/
+/.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.env
+.env.*
+!.env.example
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+*.swp
+*~
+
+# Private local publication notes and audits; never publish
+/.local/

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="WSLBox: Windows to Linux folder">
+  <title>WSLBox</title>
+  <desc>Original vector artwork: a folder, a Windows-style four-pane mark, a right arrow and a small penguin.</desc>
+  <path d="M3 14 V9 Q3 6.5 5.5 6.5 H11.4 Q12.2 6.5 12.8 7.1 L15.7 10 V14 Z" fill="#bf9145" />
+  <rect x="3" y="10" width="26" height="17" rx="3" fill="#bf9145" />
+  <rect x="4" y="11" width="24" height="15" rx="2" fill="#e3b961" />
+  <rect x="5" y="12" width="22" height="13" rx="1" fill="#f1cd7d" />
+  <g fill="#168de2">
+    <rect x="6" y="14.85" width="3.3" height="3.3" rx=".15" />
+    <rect x="10" y="14.85" width="3.3" height="3.3" rx=".15" />
+    <rect x="6" y="18.85" width="3.3" height="3.3" rx=".15" />
+    <rect x="10" y="18.85" width="3.3" height="3.3" rx=".15" />
+  </g>
+  <path d="M14.5 18.5 H18.5 M17.15 17.15 L18.5 18.5 17.15 19.85" fill="none" stroke="#536b7b" stroke-width=".6" stroke-linecap="round" stroke-linejoin="round" />
+  <g>
+    <path d="M21.220628 16.295 C21.031628 15.287 21.346628 13.901 22.795628 13.901 C24.307628 13.901 24.559628 15.224 24.370628 16.358 C25.063628 17.681 26.008628 19.697 25.252628 21.65 C24.811628 22.784 20.842628 22.784 20.275628 21.65 C19.582628 20.327 20.653628 17.555 21.220628 16.295 Z" fill="#222831" />
+    <path d="M20.968628 18.815 Q19.834628 20.012 20.023628 21.209 M24.874628 18.626 Q25.945628 19.571 25.630628 21.02" fill="none" stroke="#222831" stroke-width="0.756" stroke-linecap="round" />
+    <ellipse cx="22.795628" cy="19.508" rx="1.953" ry="2.709" fill="#fffdf5" />
+    <ellipse cx="22.102628" cy="15.917" rx="0.504" ry="0.693" fill="#fffdf5" />
+    <ellipse cx="23.425628" cy="15.917" rx="0.504" ry="0.693" fill="#fffdf5" />
+    <ellipse cx="22.228628" cy="16.043" rx="0.1764" ry="0.3024" fill="#222831" />
+    <ellipse cx="23.299628" cy="16.043" rx="0.1764" ry="0.3024" fill="#222831" />
+    <path d="M21.850628 16.799 L22.795628 17.429 23.740628 16.799 22.795628 16.421 Z" fill="#f3a72e" />
+    <path d="M22.165628 21.902 Q21.220628 21.524 20.338628 22.406 Q20.023628 22.91 20.779628 23.099 L22.480628 22.847 Z M23.299628 21.902 Q24.370628 21.524 25.252628 22.406 Q25.630628 22.91 24.811628 23.099 L23.110628 22.847 Z" fill="#f3a72e" />
+  </g>
+</svg>

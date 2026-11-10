@@ -1,0 +1,18 @@
+* text=auto
+*.cs text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.json text eol=lf
+*.ps1 text eol=lf
+*.yml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.md text eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.ico binary
+
+# Keep the website in Git for Pages, but omit it from source archives.
+/docs export-ignore
+/docs/** export-ignore

@@ -1,0 +1,1186 @@
+{
+  "ui.browse": {
+    "zh-CN": "浏览",
+    "en-US": "Browse"
+  },
+  "ui.home": {
+    "zh-CN": "主目录",
+    "en-US": "Home"
+  },
+  "ui.refresh": {
+    "zh-CN": "刷新",
+    "en-US": "Refresh"
+  },
+  "ui.ok": {
+    "zh-CN": "确定",
+    "en-US": "OK"
+  },
+  "ui.folder_settings": {
+    "zh-CN": "文件夹设置",
+    "en-US": "Folder settings"
+  },
+  "ui.choose_a_distribution_and_a_folder_to_display": {
+    "zh-CN": "选择发行版和要显示的文件夹。",
+    "en-US": "Choose a distribution and a folder to display."
+  },
+  "ui.distribution": {
+    "zh-CN": "发行版",
+    "en-US": "Distribution"
+  },
+  "ui.folder": {
+    "zh-CN": "文件夹",
+    "en-US": "Folder"
+  },
+  "ui.box_name": {
+    "zh-CN": "格子名称",
+    "en-US": "Box name"
+  },
+  "ui.accepts_linux_paths_or_wsl_unc_paths_such_as_wsl_localhost_and_w": {
+    "zh-CN": "支持 Linux 路径，也可粘贴所选发行版的 \\\\wsl.localhost 或 \\\\wsl$ 路径。",
+    "en-US": "Accepts Linux paths or WSL UNC paths such as \\\\wsl.localhost and \\\\wsl$ for the selected distribution."
+  },
+  "ui.about": {
+    "zh-CN": "关于",
+    "en-US": "About"
+  },
+  "ui.cancel": {
+    "zh-CN": "取消",
+    "en-US": "Cancel"
+  },
+  "ui.folder_selected_access_permissions_will_be_checked_when_you_conf": {
+    "zh-CN": "已选择文件夹；确定时会检查访问权限。",
+    "en-US": "Folder selected. Access permissions will be checked when you confirm."
+  },
+  "ui.checking_the_folder": {
+    "zh-CN": "正在检查文件夹…",
+    "en-US": "Checking the folder…"
+  },
+  "ui.loading_installed_wsl_distributions": {
+    "zh-CN": "正在读取已安装的 WSL 发行版…",
+    "en-US": "Loading installed WSL distributions…"
+  },
+  "ui.no_distribution_found_install_a_wsl_distribution_then_refresh": {
+    "zh-CN": "没有找到发行版，请先安装 WSL 发行版，再点击刷新。",
+    "en-US": "No distribution found. Install a WSL distribution, then refresh."
+  },
+  "ui.the_previous_distribution_is_unavailable_choose_another_one": {
+    "zh-CN": "原发行版不可用，请从列表中重新选择。",
+    "en-US": "The previous distribution is unavailable. Choose another one."
+  },
+  "ui.distribution_list_updated": {
+    "zh-CN": "发行版列表已更新。",
+    "en-US": "Distribution list updated."
+  },
+  "ui.loading_the_home_directory": {
+    "zh-CN": "正在读取主目录…",
+    "en-US": "Loading the home directory…"
+  },
+  "ui.selected_this_distribution_s_home_directory": {
+    "zh-CN": "已选择当前发行版的主目录。",
+    "en-US": "Selected this distribution’s home directory."
+  },
+  "ui.leave_the_name_blank_to_use": {
+    "zh-CN": "名称留空，自动使用：",
+    "en-US": "Leave the name blank to use: "
+  },
+  "ui.folder_name": {
+    "zh-CN": "文件夹名称",
+    "en-US": "folder name"
+  },
+  "ui.display_name": {
+    "zh-CN": "显示名称：",
+    "en-US": "Display name: "
+  },
+  "ui.new_name_keep_the_extension_you_need": {
+    "zh-CN": "新名称（保留所需扩展名）",
+    "en-US": "New name (keep the extension you need)"
+  },
+  "ui.a_name_is_required_it_cannot_contain_or_line_breaks": {
+    "zh-CN": "名称不能为空，也不能包含 / 或换行。",
+    "en-US": "A name is required. It cannot contain / or line breaks."
+  },
+  "ui.about_wslbox": {
+    "zh-CN": "关于 WSLBox",
+    "en-US": "About WSLBox"
+  },
+  "ui.preview": {
+    "zh-CN": "  预览版",
+    "en-US": "  Preview"
+  },
+  "ui.browse_wsl_folders_on_the_windows_desktop_transfer_files_across_": {
+    "zh-CN": "在 Windows 桌面浏览 WSL 文件夹，支持跨系统拖放，并使用 Linux 默认应用打开文件。",
+    "en-US": "Browse WSL folders on the Windows desktop, transfer files across systems, and open them with Linux applications."
+  },
+  "ui.requires_windows_and_wsl2_wslg_license_gnu_gpl_v3": {
+    "zh-CN": "适用环境：Windows、WSL2 / WSLg\n许可证：GNU GPL v3",
+    "en-US": "Requires Windows and WSL2 / WSLg\nLicense: GNU GPL v3"
+  },
+  "ui.close": {
+    "zh-CN": "关闭",
+    "en-US": "Close"
+  },
+  "ui.wslbox_help": {
+    "zh-CN": "WSLBox 帮助",
+    "en-US": "WSLBox Help"
+  },
+  "ui.timed_out_loading_distributions_try_again": {
+    "zh-CN": "获取发行版列表超时，请重试。",
+    "en-US": "Timed out loading distributions. Try again."
+  },
+  "ui.timed_out_reading_the_distribution_list": {
+    "zh-CN": "发行版列表读取超时。",
+    "en-US": "Timed out reading the distribution list."
+  },
+  "ui.could_not_load_wsl_distributions": {
+    "zh-CN": "无法获取 WSL 发行版。",
+    "en-US": "Could not load WSL distributions."
+  },
+  "ui.this_folder_belongs_to_a_different_distribution_select_that_dist": {
+    "zh-CN": "所选文件夹不属于当前发行版，请先切换发行版。",
+    "en-US": "This folder belongs to a different distribution. Select that distribution first."
+  },
+  "ui.the_folder_path_contains_invalid_characters": {
+    "zh-CN": "文件夹路径包含无效字符。",
+    "en-US": "The folder path contains invalid characters."
+  },
+  "ui.choose_a_folder_in": {
+    "zh-CN": "选择 ",
+    "en-US": "Choose a folder in "
+  },
+  "ui.select_folder": {
+    "zh-CN": "选择文件夹",
+    "en-US": "Select folder"
+  },
+  "ui.invalid_wsl_distribution_name": {
+    "zh-CN": "无效的 WSL 发行版名称。",
+    "en-US": "Invalid WSL distribution name."
+  },
+  "ui.enter_an_absolute_linux_path_starting_with": {
+    "zh-CN": "请输入以 / 开头的 Linux 路径。",
+    "en-US": "Enter an absolute Linux path starting with /."
+  },
+  "ui.no_files_to_transfer": {
+    "zh-CN": "没有要传输的文件。",
+    "en-US": "No files to transfer."
+  },
+  "ui.cannot_copy_or_move_a_folder_into_itself_or_a_descendant": {
+    "zh-CN": "不能把文件夹复制或移动到它自身或其子目录。",
+    "en-US": "Cannot copy or move a folder into itself or a descendant."
+  },
+  "ui.these_items_are_already_in_the_destination_folder": {
+    "zh-CN": "这些文件已经在目标文件夹中，无需移动。",
+    "en-US": "These items are already in the destination folder."
+  },
+  "ui.this_filename_cannot_be_transferred_through_windows_shell_drag_a": {
+    "zh-CN": "此文件名称不能通过 Windows 文件拖放处理。",
+    "en-US": "This filename cannot be transferred through Windows Shell drag and drop."
+  },
+  "ui.could_not_send_a_startup_request_to_wsl_check_that_the_distribut": {
+    "zh-CN": "无法向 WSL 发送启动请求，请检查发行版能否正常启动。",
+    "en-US": "Could not send a startup request to WSL. Check that the distribution can start."
+  },
+  "ui.the_file_operation_timed_out_and_may_be_partially_complete_check": {
+    "zh-CN": "文件操作超时，可能已部分完成，请检查源和目标目录。",
+    "en-US": "The file operation timed out and may be partially complete. Check the source and destination."
+  },
+  "ui.wsl_did_not_respond_within_20_seconds_check_the_distribution_and": {
+    "zh-CN": "WSL 请求超过 20 秒。请确认发行版能启动，然后刷新重试。",
+    "en-US": "WSL did not respond within 20 seconds. Check the distribution and try again."
+  },
+  "ui.wsl_output_did_not_close_normally": {
+    "zh-CN": "WSL 输出未能正常关闭。",
+    "en-US": "WSL output did not close normally."
+  },
+  "ui.wsl_returned_an_invalid_response": {
+    "zh-CN": "WSL 未返回有效结果。\n",
+    "en-US": "WSL returned an invalid response.\n"
+  },
+  "ui.wsl_failed": {
+    "zh-CN": "WSL 执行失败。\n",
+    "en-US": "WSL failed.\n"
+  },
+  "ui.windows_menu_command_failed_0x": {
+    "zh-CN": "Windows 菜单命令执行失败（0x",
+    "en-US": "Windows menu command failed (0x"
+  },
+  "ui.windows_cannot_resolve_this_path": {
+    "zh-CN": "Windows 无法识别此文件路径。",
+    "en-US": "Windows cannot resolve this path."
+  },
+  "ui.select_items_from_the_same_folder_to_use_the_native_menu": {
+    "zh-CN": "原生菜单需要选择同一文件夹中的项目。",
+    "en-US": "Select items from the same folder to use the native menu."
+  },
+  "ui.windows_could_not_create_the_context_menu": {
+    "zh-CN": "Windows 无法创建右键菜单。",
+    "en-US": "Windows could not create the context menu."
+  },
+  "ui.move_to_linux_trash_d_delete": {
+    "zh-CN": "移到 Linux 回收站(&D)\tDelete",
+    "en-US": "Move to Linux Trash (&D)\tDelete"
+  },
+  "ui.could_not_create_the_view_or_sort_menu": {
+    "zh-CN": "无法创建查看或排序菜单。",
+    "en-US": "Could not create the view or sort menu."
+  },
+  "ui.could_not_insert_a_menu_item": {
+    "zh-CN": "无法插入菜单。",
+    "en-US": "Could not insert a menu item."
+  },
+  "ui.view_v": {
+    "zh-CN": "查看(&V)",
+    "en-US": "View (&V)"
+  },
+  "ui.large_icons_r": {
+    "zh-CN": "大图标(&R)",
+    "en-US": "Large icons (&R)"
+  },
+  "ui.medium_icons_m": {
+    "zh-CN": "中等图标(&M)",
+    "en-US": "Medium icons (&M)"
+  },
+  "ui.small_icons_n": {
+    "zh-CN": "小图标(&N)",
+    "en-US": "Small icons (&N)"
+  },
+  "ui.list_l": {
+    "zh-CN": "列表(&L)",
+    "en-US": "List (&L)"
+  },
+  "ui.show_thumbnails": {
+    "zh-CN": "显示缩略图",
+    "en-US": "Show thumbnails"
+  },
+  "ui.sort_by_o": {
+    "zh-CN": "排序方式(&O)",
+    "en-US": "Sort by (&O)"
+  },
+  "ui.name": {
+    "zh-CN": "名称",
+    "en-US": "Name"
+  },
+  "ui.size": {
+    "zh-CN": "大小",
+    "en-US": "Size"
+  },
+  "ui.type": {
+    "zh-CN": "项目类型",
+    "en-US": "Type"
+  },
+  "ui.date_modified": {
+    "zh-CN": "修改时间",
+    "en-US": "Date modified"
+  },
+  "ui.ascending": {
+    "zh-CN": "递增",
+    "en-US": "Ascending"
+  },
+  "ui.descending": {
+    "zh-CN": "递减",
+    "en-US": "Descending"
+  },
+  "ui.refresh_e": {
+    "zh-CN": "刷新(&E)",
+    "en-US": "Refresh (&E)"
+  },
+  "ui.open_with_linux_default_app": {
+    "zh-CN": "用 Linux 默认程序打开",
+    "en-US": "Open with Linux default app"
+  },
+  "ui.linux_open_with": {
+    "zh-CN": "Linux 打开方式",
+    "en-US": "Linux Open with"
+  },
+  "ui.rename_f2": {
+    "zh-CN": "重命名\tF2",
+    "en-US": "Rename\tF2"
+  },
+  "ui.move_to_linux_trash_delete": {
+    "zh-CN": "移到 Linux 回收站\tDelete",
+    "en-US": "Move to Linux Trash\tDelete"
+  },
+  "ui.open_linux_trash": {
+    "zh-CN": "打开 Linux 回收站",
+    "en-US": "Open Linux Trash"
+  },
+  "ui.folder_settings_ctrl_l": {
+    "zh-CN": "文件夹设置\tCtrl+L",
+    "en-US": "Folder settings\tCtrl+L"
+  },
+  "ui.bound_folder_alt_home": {
+    "zh-CN": "返回设置目录\tAlt+Home",
+    "en-US": "Bound folder\tAlt+Home"
+  },
+  "ui.new_folder_ctrl_shift_n": {
+    "zh-CN": "新建文件夹\tCtrl+Shift+N",
+    "en-US": "New folder\tCtrl+Shift+N"
+  },
+  "ui.restore_window_ctrl_shift_r": {
+    "zh-CN": "还原窗口大小\tCtrl+Shift+R",
+    "en-US": "Restore window\tCtrl+Shift+R"
+  },
+  "ui.new_box_ctrl_n": {
+    "zh-CN": "新建文件格子\tCtrl+N",
+    "en-US": "New box\tCtrl+N"
+  },
+  "ui.help_and_shortcuts": {
+    "zh-CN": "帮助和快捷键",
+    "en-US": "Help and shortcuts"
+  },
+  "ui.close_this_box": {
+    "zh-CN": "关闭此格子",
+    "en-US": "Close this box"
+  },
+  "ui.exit_keep_layout": {
+    "zh-CN": "退出程序（保留布局）",
+    "en-US": "Exit (keep layout)"
+  },
+  "ui.the_embedded_application_icon_is_missing_download_the_complete_r": {
+    "zh-CN": "程序内嵌图标缺失，请重新解压完整版本。",
+    "en-US": "The embedded application icon is missing. Download the complete release again."
+  },
+  "ui.current_default": {
+    "zh-CN": "（当前默认）",
+    "en-US": " (current default)"
+  },
+  "ui.show_other_linux_applications": {
+    "zh-CN": "显示其他 Linux 应用",
+    "en-US": "Show other Linux applications"
+  },
+  "ui.use_as_the_linux_default_for_this_file_type": {
+    "zh-CN": "设为此类文件的 Linux 默认应用",
+    "en-US": "Use as the Linux default for this file type"
+  },
+  "ui.open": {
+    "zh-CN": "打开",
+    "en-US": "Open"
+  },
+  "ui.choose_a_linux_app_for": {
+    "zh-CN": "选择 Linux 应用打开：",
+    "en-US": "Choose a Linux app for: "
+  },
+  "ui.search_application_names_or_commands": {
+    "zh-CN": "搜索应用名称或启动命令",
+    "en-US": "Search application names or commands"
+  },
+  "ui.loading_linux_applications": {
+    "zh-CN": "正在读取 Linux 应用…",
+    "en-US": "Loading Linux applications…"
+  },
+  "ui.file_type": {
+    "zh-CN": "文件类型：",
+    "en-US": "File type: "
+  },
+  "ui.copy_current_folder_s_linux_path": {
+    "zh-CN": "复制当前文件夹的 Linux 路径",
+    "en-US": "Copy current folder’s Linux path"
+  },
+  "ui.linux_path_copied": {
+    "zh-CN": "已复制 Linux 路径。",
+    "en-US": "Linux path copied."
+  },
+  "ui.switch_icons_list": {
+    "zh-CN": "切换图标 / 列表",
+    "en-US": "Switch icons/list"
+  },
+  "ui.lock_position_and_size": {
+    "zh-CN": "锁定位置和大小",
+    "en-US": "Lock position and size"
+  },
+  "ui.new_box": {
+    "zh-CN": "新建文件格子",
+    "en-US": "New box"
+  },
+  "ui.menu_and_help": {
+    "zh-CN": "菜单和帮助",
+    "en-US": "Menu and help"
+  },
+  "ui.collapse_expand": {
+    "zh-CN": "收起 / 展开",
+    "en-US": "Collapse/expand"
+  },
+  "ui.all": {
+    "zh-CN": "全部",
+    "en-US": "All"
+  },
+  "ui.folders": {
+    "zh-CN": "目录",
+    "en-US": "Folders"
+  },
+  "ui.documents": {
+    "zh-CN": "文档",
+    "en-US": "Documents"
+  },
+  "ui.images": {
+    "zh-CN": "图片",
+    "en-US": "Images"
+  },
+  "ui.archives": {
+    "zh-CN": "压缩",
+    "en-US": "Archives"
+  },
+  "ui.other": {
+    "zh-CN": "其它",
+    "en-US": "Other"
+  },
+  "ui.move_to": {
+    "zh-CN": "移动到：",
+    "en-US": "Move to: "
+  },
+  "ui.copy_to": {
+    "zh-CN": "复制到：",
+    "en-US": "Copy to: "
+  },
+  "ui.folder_settings_ctrl_l_2db86b": {
+    "zh-CN": "文件夹设置   Ctrl+L",
+    "en-US": "Folder settings   Ctrl+L"
+  },
+  "ui.bound_folder_alt_home_9134c1": {
+    "zh-CN": "返回设置目录   Alt+Home",
+    "en-US": "Bound folder   Alt+Home"
+  },
+  "ui.new_folder_ctrl_shift_n_1157ef": {
+    "zh-CN": "新建文件夹   Ctrl+Shift+N",
+    "en-US": "New folder   Ctrl+Shift+N"
+  },
+  "ui.view": {
+    "zh-CN": "查看",
+    "en-US": "View"
+  },
+  "ui.sort_by": {
+    "zh-CN": "排序方式",
+    "en-US": "Sort by"
+  },
+  "ui.large_icons": {
+    "zh-CN": "大图标",
+    "en-US": "Large icons"
+  },
+  "ui.medium_icons": {
+    "zh-CN": "中等图标",
+    "en-US": "Medium icons"
+  },
+  "ui.small_icons": {
+    "zh-CN": "小图标",
+    "en-US": "Small icons"
+  },
+  "ui.list": {
+    "zh-CN": "列表",
+    "en-US": "List"
+  },
+  "ui.background_opacity": {
+    "zh-CN": "背景透明度",
+    "en-US": "Background opacity"
+  },
+  "ui.background_opacity_3bc015": {
+    "zh-CN": "背景不透明度 ",
+    "en-US": "Background opacity "
+  },
+  "ui.restore_window_ctrl_shift_r_2d0a09": {
+    "zh-CN": "还原窗口大小   Ctrl+Shift+R",
+    "en-US": "Restore window   Ctrl+Shift+R"
+  },
+  "ui.edge_magnetism": {
+    "zh-CN": "贴边吸附",
+    "en-US": "Edge magnetism"
+  },
+  "ui.new_box_ctrl_n_ff9436": {
+    "zh-CN": "新建文件格子   Ctrl+N",
+    "en-US": "New box   Ctrl+N"
+  },
+  "ui.rename_f2_0b5144": {
+    "zh-CN": "重命名   F2",
+    "en-US": "Rename   F2"
+  },
+  "ui.move_to_linux_trash_delete_725a71": {
+    "zh-CN": "移到 Linux 回收站   Delete",
+    "en-US": "Move to Linux Trash   Delete"
+  },
+  "ui.copy_ctrl_c": {
+    "zh-CN": "复制   Ctrl+C",
+    "en-US": "Copy   Ctrl+C"
+  },
+  "ui.cut_ctrl_x": {
+    "zh-CN": "剪切   Ctrl+X",
+    "en-US": "Cut   Ctrl+X"
+  },
+  "ui.paste_ctrl_v": {
+    "zh-CN": "粘贴   Ctrl+V",
+    "en-US": "Paste   Ctrl+V"
+  },
+  "ui.help": {
+    "zh-CN": "帮助",
+    "en-US": "Help"
+  },
+  "ui.windows_context_menu_unavailable": {
+    "zh-CN": "Windows 原生菜单不可用：",
+    "en-US": "Windows context menu unavailable: "
+  },
+  "ui.folder_box": {
+    "zh-CN": "文件格子",
+    "en-US": "Folder box"
+  },
+  "ui.current_folder": {
+    "zh-CN": "\n当前目录：",
+    "en-US": "\nCurrent folder: "
+  },
+  "ui.bound_folder": {
+    "zh-CN": "\n设置目录：",
+    "en-US": "\nBound folder: "
+  },
+  "ui.items": {
+    "zh-CN": " 项",
+    "en-US": " items"
+  },
+  "ui.locked_click_to_unlock_position_and_size": {
+    "zh-CN": "已锁定，点击解锁位置和大小",
+    "en-US": "Locked; click to unlock position and size"
+  },
+  "ui.switch_to_list": {
+    "zh-CN": "切换到列表模式",
+    "en-US": "Switch to list"
+  },
+  "ui.switch_to_icons": {
+    "zh-CN": "切换到图标模式",
+    "en-US": "Switch to icons"
+  },
+  "ui.operation_failed": {
+    "zh-CN": "操作失败：",
+    "en-US": "Operation failed: "
+  },
+  "ui.connecting_to_wsl": {
+    "zh-CN": "正在连接 WSL…",
+    "en-US": "Connecting to WSL…"
+  },
+  "ui.reading_the_folder": {
+    "zh-CN": "正在读取文件夹…",
+    "en-US": "Reading the folder…"
+  },
+  "ui.read_failed": {
+    "zh-CN": "读取失败：",
+    "en-US": "Read failed: "
+  },
+  "ui.opening_the_folder": {
+    "zh-CN": "正在打开文件夹…",
+    "en-US": "Opening the folder…"
+  },
+  "ui.waiting_for_the_linux_default_app": {
+    "zh-CN": "正在等待 Linux 默认程序…",
+    "en-US": "Waiting for the Linux default app…"
+  },
+  "ui.linux_default_application": {
+    "zh-CN": "Linux 默认程序",
+    "en-US": "Linux default application"
+  },
+  "ui.the_linux_default_app_did_not_acknowledge_the_request": {
+    "zh-CN": "Linux 默认程序未确认打开请求。",
+    "en-US": "The Linux default app did not acknowledge the request."
+  },
+  "ui.accepted_the_open_request": {
+    "zh-CN": " 已接收打开请求。",
+    "en-US": " accepted the open request."
+  },
+  "ui.opening_with_the_selected_linux_app": {
+    "zh-CN": "正在使用所选 Linux 应用打开…",
+    "en-US": "Opening with the selected Linux app…"
+  },
+  "ui.the_linux_app_did_not_acknowledge_the_request": {
+    "zh-CN": "Linux 应用未确认打开请求。",
+    "en-US": "The Linux app did not acknowledge the request."
+  },
+  "ui.linux_application": {
+    "zh-CN": "Linux 应用",
+    "en-US": "Linux application"
+  },
+  "ui.permanently_delete": {
+    "zh-CN": "永久删除",
+    "en-US": "Permanently delete"
+  },
+  "ui.move_to_linux_trash": {
+    "zh-CN": "移到 Linux 回收站",
+    "en-US": "Move to Linux Trash"
+  },
+  "ui.permanently_delete_b7df60": {
+    "zh-CN": "永久删除选中的 ",
+    "en-US": "Permanently delete "
+  },
+  "ui.selected_item_s_these_items_will_not_go_to_trash": {
+    "zh-CN": " 个项目？\n这些项目不会进入回收站。",
+    "en-US": " selected item(s)?\nThese items will not go to Trash."
+  },
+  "ui.move": {
+    "zh-CN": "将选中的 ",
+    "en-US": "Move "
+  },
+  "ui.selected_item_s_to_linux_trash_you_can_restore_them_with_a_linux": {
+    "zh-CN": " 个项目移到 Linux 回收站？\n可通过 Linux 文件管理器恢复。",
+    "en-US": " selected item(s) to Linux Trash?\nYou can restore them with a Linux file manager."
+  },
+  "ui.working": {
+    "zh-CN": "正在",
+    "en-US": "Working: "
+  },
+  "ui.item_s_completed": {
+    "zh-CN": " 项已完成，",
+    "en-US": " item(s) completed; "
+  },
+  "ui.item_s_failed": {
+    "zh-CN": " 项未完成。\n",
+    "en-US": " item(s) failed.\n"
+  },
+  "ui.items_that_could_not_be_trashed_will_not_be_permanently_deleted_": {
+    "zh-CN": "\n未能进入回收站的项目不会自动永久删除。",
+    "en-US": "\nItems that could not be trashed will not be permanently deleted automatically."
+  },
+  "ui.item_s": {
+    "zh-CN": " 项已",
+    "en-US": " item(s): "
+  },
+  "ui.another_operation_is_in_progress_try_confirming_again_shortly": {
+    "zh-CN": "当前正在进行其他操作，请稍后确认。",
+    "en-US": "Another operation is in progress. Try confirming again shortly."
+  },
+  "ui.rename_did_not_complete": {
+    "zh-CN": "重命名没有完成。",
+    "en-US": "Rename did not complete."
+  },
+  "ui.new_folder": {
+    "zh-CN": "新建文件夹",
+    "en-US": "New folder"
+  },
+  "ui.the_file_operation_did_not_complete": {
+    "zh-CN": "文件操作未完成。",
+    "en-US": "The file operation did not complete."
+  },
+  "ui.transfer_symbolic_links_within_linux_to_preserve_their_semantics": {
+    "zh-CN": "请在 Linux 中传输符号链接，以保留链接语义。",
+    "en-US": "Transfer symbolic links within Linux to preserve their semantics."
+  },
+  "ui.moving_check_the_windows_file_operation_dialog": {
+    "zh-CN": "正在移动，请查看 Windows 文件操作窗口…",
+    "en-US": "Moving; check the Windows file operation dialog…"
+  },
+  "ui.copying_check_the_windows_file_operation_dialog": {
+    "zh-CN": "正在复制，请查看 Windows 文件操作窗口…",
+    "en-US": "Copying; check the Windows file operation dialog…"
+  },
+  "ui.file_operation_complete": {
+    "zh-CN": "文件操作已完成。",
+    "en-US": "File operation complete."
+  },
+  "ui.some_operations_did_not_complete_check_the_source_and_destinatio": {
+    "zh-CN": "操作未全部完成，请检查源和目标文件夹。",
+    "en-US": "Some operations did not complete. Check the source and destination."
+  },
+  "ui.cut": {
+    "zh-CN": "已剪切 ",
+    "en-US": "Cut "
+  },
+  "ui.copied": {
+    "zh-CN": "已复制 ",
+    "en-US": "Copied "
+  },
+  "ui.items_95de7c": {
+    "zh-CN": " 项。",
+    "en-US": " items."
+  },
+  "ui.wait_for_the_file_operation_to_finish_before_closing": {
+    "zh-CN": "请等待文件操作结束后关闭。",
+    "en-US": "Wait for the file operation to finish before closing."
+  },
+  "ui.wslbox_is_already_running_use_to_create_a_box_or_show_the_boxes_": {
+    "zh-CN": "WSLBox 已在运行。请使用格子上的 + 新建格子，或从托盘显示。",
+    "en-US": "WSLBox is already running. Use + to create a box, or show the boxes from the tray."
+  },
+  "ui.wslbox_startup_failed": {
+    "zh-CN": "WSLBox 启动失败",
+    "en-US": "WSLBox startup failed"
+  },
+  "ui.wslbox_desktop_folder_boxes": {
+    "zh-CN": "WSLBox · 桌面文件格子",
+    "en-US": "WSLBox · Desktop folder boxes"
+  },
+  "ui.show_all_boxes": {
+    "zh-CN": "显示全部格子",
+    "en-US": "Show all boxes"
+  },
+  "ui.double_click_desktop_to_hide_show": {
+    "zh-CN": "双击桌面空白处隐藏 / 显示",
+    "en-US": "Double-click desktop to hide/show"
+  },
+  "ui.only_blank_windows_desktop_areas_trigger_this_desktop_icons_are_": {
+    "zh-CN": "仅响应 Windows 桌面空白处，不影响桌面图标。",
+    "en-US": "Only blank Windows desktop areas trigger this. Desktop icons are unaffected."
+  },
+  "ui.desktop_mouse_detection_could_not_start_restart_wslbox": {
+    "zh-CN": "桌面鼠标监听未能启动，请重新运行 WSLBox。",
+    "en-US": "Desktop mouse detection could not start. Restart WSLBox."
+  },
+  "ui.new_box_5cc522": {
+    "zh-CN": "新建格子",
+    "en-US": "New box"
+  },
+  "ui.exit_keep_layout_5dd492": {
+    "zh-CN": "退出（保留布局）",
+    "en-US": "Exit (keep layout)"
+  },
+  "ui.could_not_save_the_box_layout": {
+    "zh-CN": "无法保存格子布局：\n",
+    "en-US": "Could not save the box layout:\n"
+  },
+  "ui.wait_for_the_file_operation_to_finish_before_exiting": {
+    "zh-CN": "请等待文件操作结束后退出。",
+    "en-US": "Wait for the file operation to finish before exiting."
+  },
+  "ui.the_linux_request_timed_out_it_may_already_have_been_submitted_c": {
+    "zh-CN": "等待 Linux 请求响应超时；请求可能已提交，请先检查操作结果。",
+    "en-US": "The Linux request timed out. It may already have been submitted; check the result before retrying."
+  },
+  "ui.the_linux_request_channel_exited": {
+    "zh-CN": "Linux 请求通道已退出。",
+    "en-US": "The Linux request channel exited."
+  },
+  "ui.the_linux_request_channel_is_not_ready": {
+    "zh-CN": "Linux 请求通道未就绪。",
+    "en-US": "The Linux request channel is not ready."
+  },
+  "backend.incorrect_permissions_on_the_wslbox_session_directory": {
+    "zh-CN": "WSLBox 应用会话目录权限不正确。",
+    "en-US": "Incorrect permissions on the WSLBox session directory."
+  },
+  "backend.invalid_wslbox_session_socket": {
+    "zh-CN": "WSLBox 应用会话套接字无效。",
+    "en-US": "Invalid WSLBox session socket."
+  },
+  "backend.the_wslbox_session_is_temporarily_unresponsive_try_again_shortly": {
+    "zh-CN": "WSLBox 应用会话暂时无响应，请稍后重试。",
+    "en-US": "The WSLBox session is temporarily unresponsive. Try again shortly."
+  },
+  "backend.could_not_start_the_private_wslbox_d_bus_session_install_dbus": {
+    "zh-CN": "无法启动 WSLBox 独立 D-Bus 会话，请确认已安装 dbus。",
+    "en-US": "Could not start the private WSLBox D-Bus session. Install dbus."
+  },
+  "backend.could_not_start_the_private_wslbox_d_bus_session": {
+    "zh-CN": "无法启动 WSLBox 独立 D-Bus 会话：",
+    "en-US": "Could not start the private WSLBox D-Bus session: "
+  },
+  "backend.incorrect_permissions_on_the_private_wslbox_runtime_directory": {
+    "zh-CN": "WSLBox 私有运行目录权限不正确。",
+    "en-US": "Incorrect permissions on the private WSLBox runtime directory."
+  },
+  "backend.wslg_display_services_were_not_found_enable_wslg_in_windows": {
+    "zh-CN": "未找到 WSLg 显示服务，请确认 Windows 已启用 WSLg。",
+    "en-US": "WSLg display services were not found. Enable WSLg in Windows."
+  },
+  "backend.shortcut_links_form_a_cycle_and_cannot_be_opened": {
+    "zh-CN": "快捷方式循环引用，无法打开。",
+    "en-US": "Shortcut links form a cycle and cannot be opened."
+  },
+  "backend.could_not_read_this_application_shortcut": {
+    "zh-CN": "无法读取此应用快捷方式。",
+    "en-US": "Could not read this application shortcut."
+  },
+  "backend.the_shortcut_needs_a_valid_type_and_url": {
+    "zh-CN": "快捷方式缺少有效的 Type 或 URL。",
+    "en-US": "The shortcut needs a valid Type and URL."
+  },
+  "backend.enter_an_absolute_wsl_folder_path_starting_with": {
+    "zh-CN": "请输入以 / 开头的 WSL 文件夹路径。",
+    "en-US": "Enter an absolute WSL folder path starting with /."
+  },
+  "backend.at_most_four_files_are_allowed_per_thumbnail_batch": {
+    "zh-CN": "缩略图请求每批最多四个文件。",
+    "en-US": "At most four files are allowed per thumbnail batch."
+  },
+  "backend.the_selected_linux_application_is_no_longer_installed_choose_ano": {
+    "zh-CN": "所选 Linux 应用已不存在，请重新选择。",
+    "en-US": "The selected Linux application is no longer installed. Choose another one."
+  },
+  "backend.could_not_set_the_linux_default_application_for_this_file_type": {
+    "zh-CN": "无法设为此类文件的 Linux 默认应用。",
+    "en-US": "Could not set the Linux default application for this file type."
+  },
+  "backend.system_default_application": {
+    "zh-CN": "系统默认程序",
+    "en-US": "System default application"
+  },
+  "backend.the_default_application_did_not_accept_the_request": {
+    "zh-CN": "默认程序没有接受打开请求。",
+    "en-US": "The default application did not accept the request."
+  },
+  "backend.the_linux_default_application_timed_out_check_that_it_can_start_": {
+    "zh-CN": "等待 Linux 默认程序响应超时，请检查该程序能否在 WSL 中启动。",
+    "en-US": "The Linux default application timed out. Check that it can start in WSL."
+  },
+  "backend.a_name_is_required_it_cannot_contain_or_line_breaks": {
+    "zh-CN": "名称不能为空，也不能包含 / 或换行。",
+    "en-US": "A name is required. It cannot contain / or line breaks."
+  },
+  "backend.invalid_file_operation_request": {
+    "zh-CN": "无效的文件操作请求。",
+    "en-US": "Invalid file operation request."
+  },
+  "backend.each_file_operation_batch_needs_1_to_32_paths": {
+    "zh-CN": "每批文件操作需要 1 至 32 个路径。",
+    "en-US": "Each file operation batch needs 1 to 32 paths."
+  },
+  "backend.the_filesystem_root_cannot_be_deleted": {
+    "zh-CN": "不能删除文件系统根目录。",
+    "en-US": "The filesystem root cannot be deleted."
+  },
+  "backend.could_not_move_the_item_to_linux_trash_the_file_was_kept": {
+    "zh-CN": "无法移入 Linux 回收站，文件已保留。",
+    "en-US": "Could not move the item to Linux Trash; the file was kept."
+  },
+  "backend.the_filesystem_root_cannot_be_renamed": {
+    "zh-CN": "不能重命名文件系统根目录。",
+    "en-US": "The filesystem root cannot be renamed."
+  },
+  "backend.unknown_file_operation": {
+    "zh-CN": "未知文件操作。",
+    "en-US": "Unknown file operation."
+  },
+  "backend.requires_windows_wsl2_wslg_graphics": {
+    "zh-CN": "需要 Windows 的 WSL2 / WSLg 图形环境",
+    "en-US": "Requires Windows WSL2 / WSLg graphics"
+  },
+  "backend.used_to_launch_linux_gui_applications_independently": {
+    "zh-CN": "用于独立启动 Linux 图形应用",
+    "en-US": "Used to launch Linux GUI applications independently"
+  },
+  "backend.thumbnail_generator": {
+    "zh-CN": "缩略图生成器",
+    "en-US": "Thumbnail generator"
+  },
+  "backend.optional_libgdk_pixbuf2_0_bin": {
+    "zh-CN": "可选: libgdk-pixbuf2.0-bin",
+    "en-US": "Optional: libgdk-pixbuf2.0-bin"
+  },
+  "backend.the_folder_does_not_exist_choose_another_folder": {
+    "zh-CN": "文件夹不存在，请重新选择。",
+    "en-US": "The folder does not exist. Choose another folder."
+  },
+  "backend.the_selected_path_is_not_a_folder": {
+    "zh-CN": "所选路径不是文件夹。",
+    "en-US": "The selected path is not a folder."
+  },
+  "backend.you_do_not_have_permission_to_read_this_folder_choose_an_accessi": {
+    "zh-CN": "没有权限读取该文件夹，请选择可访问的目录。",
+    "en-US": "You do not have permission to read this folder. Choose an accessible one."
+  },
+  "settings.language": {
+    "zh-CN": "界面语言",
+    "en-US": "Interface language"
+  },
+  "settings.language_saved": {
+    "zh-CN": "语言设置已保存，重新启动 WSLBox 后生效。",
+    "en-US": "Language saved. Restart WSLBox to apply it."
+  },
+  "settings.language_saved_title": {
+    "zh-CN": "语言设置",
+    "en-US": "Language settings"
+  },
+  "settings.picker_title": {
+    "zh-CN": "选择 {0} 中的文件夹",
+    "en-US": "Choose a folder in {0}"
+  },
+  "files.deleted_count": {
+    "zh-CN": "{0} 项已永久删除。",
+    "en-US": "Permanently deleted {0} item(s)."
+  },
+  "files.trashed_count": {
+    "zh-CN": "{0} 项已移到 Linux 回收站。",
+    "en-US": "Moved {0} item(s) to Linux Trash."
+  },
+  "shell.command_failed": {
+    "zh-CN": "Windows 菜单命令执行失败（0x{0}）：{1}",
+    "en-US": "Windows menu command failed (0x{0}): {1}"
+  },
+  "backend.ime_unconfigured": {
+    "zh-CN": "未配置受支持的 Linux 输入法；应用仍可打开。",
+    "en-US": "No supported Linux input method is configured; the app can still open."
+  },
+  "backend.ime_missing": {
+    "zh-CN": "已选择的 Linux 输入法未安装；应用仍可打开。",
+    "en-US": "The selected Linux input method is not installed; the app can still open."
+  },
+  "backend.ime_failed": {
+    "zh-CN": "Linux 输入法未能就绪；应用仍可打开，可运行环境诊断。",
+    "en-US": "The Linux input method did not become ready; the app can still open. Run diagnostics for details."
+  },
+  "backend.ime_conflict": {
+    "zh-CN": "WSLg 已运行另一版本的 Fcitx；未替换现有服务。",
+    "en-US": "A different Fcitx version is running in WSLg; the existing service was preserved."
+  },
+  "backend.ime_activation": {
+    "zh-CN": "输入法激活环境未能更新；应用仍可打开。",
+    "en-US": "The input-method activation environment could not be updated; the app can still open."
+  },
+  "backend.ime_label": {
+    "zh-CN": "Linux 输入法（可选）",
+    "en-US": "Linux input method (optional)"
+  },
+  "ui.configuration_folder": {
+    "zh-CN": "配置目录",
+    "en-US": "Configuration folder"
+  },
+  "about.project": {
+    "zh-CN": "项目主页：",
+    "en-US": "Project:"
+  },
+  "about.check_updates": {
+    "zh-CN": "检查更新",
+    "en-US": "Check for updates"
+  },
+  "about.download_update": {
+    "zh-CN": "打开下载页",
+    "en-US": "Open download page"
+  },
+  "about.checking": {
+    "zh-CN": "正在检查更新",
+    "en-US": "Checking for updates"
+  },
+  "about.new_version": {
+    "zh-CN": "发现新版本 v{0}，可前往发布页下载新版 EXE，退出后替换原文件；配置会保留。",
+    "en-US": "Version {0} is available. Download the new EXE, exit WSLBox, then replace the old file. Your settings are preserved."
+  },
+  "about.up_to_date": {
+    "zh-CN": "当前已是最新版本 v{0}。",
+    "en-US": "Version {0} is up to date."
+  },
+  "about.check_failed": {
+    "zh-CN": "检查更新失败：{0}\n可稍后重试，或打开下载页查看。",
+    "en-US": "Update check failed: {0}\nTry again later or open the download page."
+  },
+  "about.link_failed": {
+    "zh-CN": "无法打开链接，请复制网址到浏览器。",
+    "en-US": "Unable to open the link. Copy the address into your browser."
+  },
+  "help.intro": {
+    "zh-CN": "快捷键仅作用于当前格子。界面语言由全局菜单设置；帮助不占用 F1。",
+    "en-US": "Shortcuts apply to the focused box. Change the UI language from the global menu. F1 remains available to other applications."
+  },
+  "help.windows": {
+    "zh-CN": "窗口与桌面",
+    "en-US": "Windows and desktop"
+  },
+  "help.files": {
+    "zh-CN": "文件操作",
+    "en-US": "File operations"
+  },
+  "help.navigation": {
+    "zh-CN": "导航与视图",
+    "en-US": "Navigation and view"
+  },
+  "help.transfer": {
+    "zh-CN": "拖放",
+    "en-US": "Drag and drop"
+  },
+  "help.action": {
+    "zh-CN": "功能",
+    "en-US": "Action"
+  },
+  "help.shortcut": {
+    "zh-CN": "快捷键 / 操作",
+    "en-US": "Shortcut / gesture"
+  },
+  "help.desktop": {
+    "zh-CN": "隐藏或显示全部格子",
+    "en-US": "Hide or show all boxes"
+  },
+  "help.desktop_gesture": {
+    "zh-CN": "双击 Windows 桌面空白处",
+    "en-US": "Double-click empty Windows desktop"
+  },
+  "help.move": {
+    "zh-CN": "移动格子；靠近屏幕或其他格子时吸附",
+    "en-US": "Move; snap to screen edges or other boxes"
+  },
+  "help.move_gesture": {
+    "zh-CN": "拖动顶栏名称区域",
+    "en-US": "Drag the title area"
+  },
+  "help.maximize": {
+    "zh-CN": "最大化 / 还原",
+    "en-US": "Maximize / restore"
+  },
+  "help.maximize_gesture": {
+    "zh-CN": "双击顶栏",
+    "en-US": "Double-click the header"
+  },
+  "help.resize": {
+    "zh-CN": "调整大小",
+    "en-US": "Resize"
+  },
+  "help.resize_gesture": {
+    "zh-CN": "拖动右下角",
+    "en-US": "Drag the bottom-right grip"
+  },
+  "help.collapse": {
+    "zh-CN": "收起 / 展开；保留最大化状态",
+    "en-US": "Collapse / expand; preserve maximization"
+  },
+  "help.collapse_gesture": {
+    "zh-CN": "点击顶栏箭头",
+    "en-US": "Click the header chevron"
+  },
+  "help.lock": {
+    "zh-CN": "锁定或解锁位置和大小",
+    "en-US": "Lock or unlock position and size"
+  },
+  "help.lock_gesture": {
+    "zh-CN": "点击顶栏锁定按钮",
+    "en-US": "Click the header lock button"
+  },
+  "help.restore": {
+    "zh-CN": "还原为可调整大小的窗口",
+    "en-US": "Restore a resizable window"
+  },
+  "help.new_box": {
+    "zh-CN": "新建独立格子",
+    "en-US": "Create another box"
+  },
+  "help.open": {
+    "zh-CN": "打开选中项；文件使用 Linux 默认应用",
+    "en-US": "Open the selection using the default Linux application"
+  },
+  "help.open_gesture": {
+    "zh-CN": "Enter / 双击项目",
+    "en-US": "Enter / double-click an item"
+  },
+  "help.comments": {
+    "zh-CN": "说明",
+    "en-US": "Notes"
+  },
+  "help.trash": {
+    "zh-CN": "移到 Linux 回收站；不支持时保留文件",
+    "en-US": "Move to Linux Trash; keep files if unsupported"
+  },
+  "help.permanent": {
+    "zh-CN": "确认后永久删除",
+    "en-US": "Permanently delete after confirmation"
+  },
+  "help.rename": {
+    "zh-CN": "就地重命名；Enter 确认，Esc 取消",
+    "en-US": "Rename in place; Enter confirms, Esc cancels"
+  },
+  "help.new_folder": {
+    "zh-CN": "新建文件夹",
+    "en-US": "Create a folder"
+  },
+  "help.select_all": {
+    "zh-CN": "全选",
+    "en-US": "Select all"
+  },
+  "help.copy": {
+    "zh-CN": "复制",
+    "en-US": "Copy"
+  },
+  "help.cut": {
+    "zh-CN": "剪切",
+    "en-US": "Cut"
+  },
+  "help.paste": {
+    "zh-CN": "粘贴",
+    "en-US": "Paste"
+  },
+  "help.clear": {
+    "zh-CN": "取消选中",
+    "en-US": "Clear the selection"
+  },
+  "help.clear_gesture": {
+    "zh-CN": "Esc / 单击内容空白处",
+    "en-US": "Esc / click blank content"
+  },
+  "help.menu": {
+    "zh-CN": "打开右键菜单",
+    "en-US": "Open the context menu"
+  },
+  "help.back": {
+    "zh-CN": "后退",
+    "en-US": "Go back"
+  },
+  "help.back_gesture": {
+    "zh-CN": "Alt+← / 鼠标后退键",
+    "en-US": "Alt+← / mouse Back"
+  },
+  "help.forward": {
+    "zh-CN": "前进",
+    "en-US": "Go forward"
+  },
+  "help.forward_gesture": {
+    "zh-CN": "Alt+→ / 鼠标前进键",
+    "en-US": "Alt+→ / mouse Forward"
+  },
+  "help.parent": {
+    "zh-CN": "上一级目录",
+    "en-US": "Parent folder"
+  },
+  "help.home": {
+    "zh-CN": "返回格子设置的目录",
+    "en-US": "Return to the configured folder"
+  },
+  "help.refresh": {
+    "zh-CN": "刷新；平时每 5 秒自动检查",
+    "en-US": "Refresh; automatic checks run every 5 seconds"
+  },
+  "help.icons": {
+    "zh-CN": "图标视图",
+    "en-US": "Icon view"
+  },
+  "help.list": {
+    "zh-CN": "列表视图",
+    "en-US": "List view"
+  },
+  "help.folder_settings": {
+    "zh-CN": "设置发行版、文件夹和格子名称",
+    "en-US": "Set the distribution, folder and box name"
+  },
+  "help.explorer": {
+    "zh-CN": "在 Windows 资源管理器打开当前目录",
+    "en-US": "Open the current folder in Windows Explorer"
+  },
+  "help.explorer_gesture": {
+    "zh-CN": "双击内容空白处",
+    "en-US": "Double-click blank content"
+  },
+  "help.drop_copy": {
+    "zh-CN": "默认复制到格子目录",
+    "en-US": "Copy into the box by default"
+  },
+  "help.drop_gesture": {
+    "zh-CN": "直接拖入",
+    "en-US": "Drop files into the box"
+  },
+  "help.drop_move": {
+    "zh-CN": "移动到格子目录",
+    "en-US": "Move into the box"
+  },
+  "help.drop_move_gesture": {
+    "zh-CN": "按住 Shift 拖入",
+    "en-US": "Hold Shift while dropping"
+  },
+  "help.drop_force_copy": {
+    "zh-CN": "明确指定复制",
+    "en-US": "Explicitly copy"
+  },
+  "help.drop_copy_gesture": {
+    "zh-CN": "按住 Ctrl 拖入",
+    "en-US": "Hold Ctrl while dropping"
+  },
+  "help.drop_subfolder": {
+    "zh-CN": "将文件放入子文件夹",
+    "en-US": "Drop into a subfolder"
+  },
+  "help.drop_subfolder_gesture": {
+    "zh-CN": "拖到子文件夹项目上",
+    "en-US": "Drop onto a subfolder item"
+  },
+  "help.notes_title": {
+    "zh-CN": "使用说明",
+    "en-US": "Notes"
+  },
+  "help.notes": {
+    "zh-CN": "• 吸附阈值约为 12 个逻辑像素，在菜单中可统一关闭屏幕及格子边缘吸附。\n• 鼠标触到屏幕顶部后松开可最大化，左右边缘可切换半屏；与窗口边缘吸附独立。\n• 进入子目录不会修改设置的根目录；重新打开格子从设置目录开始。\n• 菜单中可打开 Linux 回收站、选择 Linux 打开方式、调整背景透明度。\n• 每个格子分别保存文件夹、视图、排序、位置、透明度和收起状态；语言设置对全部格子生效。",
+    "en-US": "• Magnetism uses a threshold of about 12 logical pixels. Its menu switch controls screen-edge and box-edge snapping together.\n• Release the pointer at the top screen edge to maximize, or at a side edge for half-screen layout. This is independent of edge magnetism.\n• Browsing subfolders does not change the configured root. Reopening starts at that root.\n• Use the menu for Linux Trash, Linux Open With, and background opacity.\n• Each box saves its own folder, view, sorting, position, opacity and collapsed state. Language is global."
+  }
+}

@@ -1,0 +1,197 @@
+name: Build checks
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish; leave empty for checks only
+        required: false
+        default: ''
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: wslbox-build-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+      RELEASE_TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+    outputs:
+      version: ${{ steps.compile.outputs.version }}
+      tag: ${{ steps.validate.outputs.tag }}
+    steps:
+      - name: Validate requested tag
+        id: validate
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -and $env:RELEASE_TAG -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw 'Use a numeric version tag, for example v1.2.0'
+          }
+          "tag=$env:RELEASE_TAG" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Validate source version
+        shell: pwsh
+        run: |
+          $text = [IO.File]::ReadAllText((Join-Path $env:GITHUB_WORKSPACE 'src/Branding.cs'), [Text.Encoding]::UTF8)
+          $version = [regex]::Match($text, 'const string Version = "([^"]+)"').Groups[1].Value
+          if ($version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') { throw 'Invalid application version' }
+          if ($env:RELEASE_TAG -and $env:RELEASE_TAG -ne "v$version") { throw 'Tag and application version differ' }
+          if ($text -notmatch ('const string AssemblyVersion = "' + [regex]::Escape($version + '.0') + '"')) { throw 'Assembly version differs' }
+          [xml]$manifest = [IO.File]::ReadAllText((Join-Path $env:GITHUB_WORKSPACE 'src/app.manifest'))
+          if ($manifest.assembly.assemblyIdentity.version -ne "$version.0") { throw 'Manifest version differs' }
+      - name: Compile Windows EXE
+        id: compile
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $OutputDirectory = 'build'
+          $src = Join-Path $root 'src'
+          $build = Join-Path $root $OutputDirectory
+          $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path $compiler)) {
+              $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+          }
+          if (-not (Test-Path $compiler)) { throw 'Windows .NET Framework compiler was not found.' }
+          New-Item -ItemType Directory -Force -Path $build | Out-Null
+          $output = Join-Path $build 'WSLBox.exe'
+          $inputMethods = [IO.File]::ReadAllText((Join-Path $src 'input_methods.py'), [Text.Encoding]::UTF8)
+          $helper = [IO.File]::ReadAllText((Join-Path $src 'thumbnails.py'), [Text.Encoding]::UTF8)
+          $backend = [IO.File]::ReadAllText((Join-Path $src 'backend.py'), [Text.Encoding]::UTF8)
+          $runtime = Join-Path $build 'backend.py'
+          $locale = Join-Path $src 'locales\strings.json'
+          $catalog = [IO.File]::ReadAllText($locale, [Text.Encoding]::UTF8) | ConvertFrom-Json
+          $backendCatalog = @{}
+          foreach ($property in $catalog.PSObject.Properties) { if ($property.Name.StartsWith('backend.')) { $backendCatalog[$property.Name] = $property.Value } }
+          $localeData = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($backendCatalog | ConvertTo-Json -Depth 5 -Compress)))
+          $preamble = "import json,base64`nWSLBOX_TRANSLATIONS=json.loads(base64.b64decode('" + $localeData + "'))`n"
+          [IO.File]::WriteAllText($runtime, $preamble + $inputMethods + "`n" + $helper + "`n" + $backend, (New-Object Text.UTF8Encoding($false)))
+          $sources = @('Core.cs', 'IconArtwork.cs', 'L10n.cs', 'OpenWorker.cs', 'Shell.cs', 'ShellContextMenu.cs', 'Program.cs', 'BoxWindow.cs', 'WindowGeometry.cs', 'FileOrdering.cs', 'FileActions.cs', 'InlineRename.cs', 'OpenWithDialog.cs', 'Dialogs.cs', 'WslSetup.cs', 'DesktopToggle.cs', 'Theme.cs', 'Branding.cs', 'SnapPreview.cs', 'UpdateService.cs', 'WindowEffects.cs') | ForEach-Object { Join-Path $src $_ }
+          $framework = Split-Path $compiler -Parent
+          $wpf = Join-Path $framework 'WPF'
+          $references = @('PresentationCore.dll', 'PresentationFramework.dll', 'WindowsBase.dll') | ForEach-Object { '/reference:' + (Join-Path $wpf $_) }
+          $builder = Join-Path $build 'IconBuilder.exe'
+          $icon = Join-Path $build 'WSLBox.ico'
+          & $compiler /nologo /target:exe /platform:anycpu /codepage:65001 /utf8output "/out:$builder" /reference:System.dll /reference:System.Drawing.dll /reference:System.Xaml.dll /reference:System.Runtime.Serialization.dll "/resource:$locale,WSLBox.Strings" @references (Join-Path $src 'L10n.cs') (Join-Path $src 'IconArtwork.cs') (Join-Path $src 'Branding.cs') (Join-Path $src 'IconBuilder.cs')
+          if ($LASTEXITCODE -ne 0) { throw "Icon builder failed: $LASTEXITCODE" }
+          & $builder $icon
+          if ($LASTEXITCODE -ne 0) { throw "Icon rendering failed: $LASTEXITCODE" }
+          & $compiler /nologo /target:winexe /platform:anycpu /optimize+ /codepage:65001 /utf8output /warn:4 "/out:$output" "/win32icon:$icon" "/resource:$icon,WSLBox.AppIcon" "/resource:$runtime,WSLBox.Backend" "/resource:$locale,WSLBox.Strings" "/win32manifest:$(Join-Path $src 'app.manifest')" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:Accessibility.dll /reference:System.Runtime.Serialization.dll /reference:System.Xaml.dll @references @sources
+          if ($LASTEXITCODE -ne 0) { throw "Build failed: $LASTEXITCODE" }
+          $versionSource = [IO.File]::ReadAllText((Join-Path $src 'Branding.cs'))
+          $version = [regex]::Match($versionSource, 'const string Version = "([^"]+)"').Groups[1].Value
+          Copy-Item -LiteralPath $output -Destination (Join-Path $build ("WSLBox-v" + $version + ".exe")) -Force
+          $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($output))
+          foreach($resource in @('WSLBox.Backend','WSLBox.Strings','WSLBox.AppIcon')) {
+              if($assembly.GetManifestResourceNames() -notcontains $resource) { throw "Missing resource: $resource" }
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $assetDirectory = Join-Path $build 'release-assets'
+          New-Item -ItemType Directory -Force -Path $assetDirectory | Out-Null
+          $exeName = "WSLBox-v$version.exe"
+          Copy-Item -LiteralPath $output -Destination (Join-Path $assetDirectory $exeName) -Force
+          $checksum = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $exeName + "`n"
+          [IO.File]::WriteAllText((Join-Path $assetDirectory 'SHA256SUMS.txt'), $checksum, (New-Object Text.UTF8Encoding($false)))
+      - name: Check Python backend syntax
+        shell: pwsh
+        run: python -m compileall -q src/backend.py src/input_methods.py src/thumbnails.py
+      - name: Save cloud build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release-assets/
+          if-no-files-found: error
+          retention-days: 14
+  release:
+    if: github.event_name != 'pull_request' && needs.build.outputs.tag != ''
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.build.outputs.tag }}
+      APP_VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ needs.build.outputs.tag }}
+      - name: Download this run's cloud build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-assets
+      - name: Verify cloud EXE
+        shell: pwsh
+        run: |
+          $assetRoot = Join-Path $env:GITHUB_WORKSPACE 'release-assets'
+          $name = "WSLBox-v$env:APP_VERSION.exe"
+          $manifestText = [IO.File]::ReadAllText((Join-Path $assetRoot 'SHA256SUMS.txt'))
+          $fields = @($manifestText -split '\s+' | Where-Object { $_ })
+          if ($fields.Count -ne 2 -or $fields[0] -notmatch '^[a-fA-F0-9]{64}$' -or $fields[1] -ne $name) { throw 'Unexpected checksum manifest' }
+          $exe = Join-Path $assetRoot $name
+          if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne $fields[0].ToLowerInvariant()) { throw 'Cloud EXE checksum mismatch' }
+          if ([Diagnostics.FileVersionInfo]::GetVersionInfo($exe).FileVersion -ne "$env:APP_VERSION.0") { throw 'EXE version mismatch' }
+          $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($exe))
+          foreach ($resource in @('WSLBox.Backend','WSLBox.Strings','WSLBox.AppIcon')) {
+            if ($assembly.GetManifestResourceNames() -notcontains $resource) { throw "Missing resource: $resource" }
+          }
+      - name: Prepare bilingual release notes
+        shell: pwsh
+        run: |
+          function Read-Changes([string]$file) {
+            $text = [IO.File]::ReadAllText((Join-Path $env:GITHUB_WORKSPACE $file), [Text.Encoding]::UTF8)
+            $pattern = '(?ms)^## v?' + [regex]::Escape($env:APP_VERSION) + '\s*\n(.*?)(?=^## |\z)'
+            $match = [regex]::Match($text, $pattern)
+            if (-not $match.Success -or -not $match.Groups[1].Value.Trim()) { throw "Missing version notes in $file" }
+            $content = $match.Groups[1].Value.Trim()
+            return $content
+          }
+          $en = Read-Changes 'CHANGELOG.md'
+          $zh = Read-Changes 'CHANGELOG.zh-CN.md'
+          $base = "https://github.com/$env:GITHUB_REPOSITORY/blob/$env:RELEASE_TAG"
+          $lines = @(
+            '## English', '', $en, '',
+            "[Changelog]($base/CHANGELOG.md)", '',
+            "Download ``WSLBox-v$env:APP_VERSION.exe`` to run WSLBox. WSL2/WSLg is required; install Python3, GIO/GTK, D-Bus and the target Linux applications inside the selected distribution. Source archives do not include the website.", '',
+            '## 简体中文', '', $zh, '',
+            "[更新记录]($base/CHANGELOG.zh-CN.md)", '',
+            "下载 ``WSLBox-v$env:APP_VERSION.exe`` 运行 WSLBox。需要 WSL2/WSLg，并在所选 Linux 发行版中安装 Python3、GIO/GTK、D-Bus 和目标应用程序。源码压缩包不包含介绍页。", ''
+          )
+          [IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE 'release-assets/release-notes.md'), ($lines -join "`n"), (New-Object Text.UTF8Encoding($false)))
+      - name: Publish verified cloud build
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $api = "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG"
+          $response = gh api $api --include 2>&1
+          $lookupExit = $LASTEXITCODE
+          $draft = $null
+          if ($lookupExit -eq 0) {
+            $draft = gh release view $env:RELEASE_TAG --json isDraft --jq '.isDraft'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not inspect existing release' }
+            if ($draft -ne 'true') { throw 'Refusing to overwrite an already published release' }
+          } elseif (($response -join "`n") -notmatch 'HTTP[^\r\n]*\b404\b') {
+            throw 'Could not determine whether the release exists'
+          }
+          $exe = "release-assets/WSLBox-v$env:APP_VERSION.exe"
+          if ($draft -eq 'true') {
+            gh release upload $env:RELEASE_TAG $exe release-assets/SHA256SUMS.txt --clobber
+          } else {
+            gh release create $env:RELEASE_TAG $exe release-assets/SHA256SUMS.txt --verify-tag --title "WSLBox $env:RELEASE_TAG" --notes-file release-assets/release-notes.md --draft
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Release attachment upload failed' }
+          gh release edit $env:RELEASE_TAG --notes-file release-assets/release-notes.md --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          $draft = gh release view $env:RELEASE_TAG --json isDraft --jq '.isDraft'
+          if ($LASTEXITCODE -ne 0 -or $draft -ne 'false') { throw 'Release is still a draft' }
