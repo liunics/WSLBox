@@ -191,7 +191,7 @@ namespace WSLBox
                 X = original.X + 36, Y = original.Y + 36, Width = original.Width, Height = original.Height,
                 Bounds = original.Bounds == null ? null : new SavedWindowBounds { Left = original.Bounds.Left + 36, Top = original.Bounds.Top + 36, Width = original.Bounds.Width, Height = original.Bounds.Height },
                 BackgroundOpacity = original.BackgroundOpacity, ViewMode = original.ViewMode, IconSize = original.IconSize,
-                SortBy = original.SortBy, SortDescending = original.SortDescending, ShowThumbnails = original.ShowThumbnails, ShowHidden = original.ShowHidden
+                SortBy = original.SortBy, SortDescending = original.SortDescending, ShowThumbnails = original.ShowThumbnails, ShowHidden = original.ShowHidden, ExpandOnHover = original.ExpandOnHover
             };
             box.Normalize(); layout.Boxes.Add(box); Open(box); Save();
         }

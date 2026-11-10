@@ -16,6 +16,21 @@ namespace WSLBox
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRectangle { public int Left, Top, Right, Bottom; }
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr window, out NativeRectangle rectangle);
+        internal static bool TryGetBounds(Window window, out Rect rectangle)
+        {
+            NativeRectangle native;
+            IntPtr handle = new WindowInteropHelper(window).Handle;
+            if (handle != IntPtr.Zero && GetWindowRect(handle, out native))
+            {
+                rectangle = new Rect(native.Left, native.Top, native.Right - native.Left, native.Bottom - native.Top);
+                return true;
+            }
+            rectangle = Rect.Empty; return false;
+        }
         internal static void DisableTransitions(Window window)
         {
             IntPtr handle = new WindowInteropHelper(window).Handle;

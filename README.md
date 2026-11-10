@@ -10,7 +10,7 @@ WSLBox displays WSL2 folders in transparent Windows desktop boxes. Browse Linux 
 
 ## Download and run
 
-Download **[WSLBox-v1.1.0.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
+Download **[WSLBox-v1.2.0.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
 
 Open **Folder settings**, choose a WSL distribution and the folder to display, and give the box a name.
 
@@ -37,6 +37,7 @@ Thumbnail support varies by file format. A Linux file manager such as PCManFM or
 - Multiple independent boxes with saved folders, positions and sizes.
 - Adjustable background transparency, icon and list views, sorting, filtering and thumbnails.
 - Lock, collapse, maximize and restore boxes; snap to screen edges and neighboring boxes.
+- Optionally expand a collapsed box while the pointer is inside it and collapse again when it leaves.
 - Double-click empty Windows desktop space to hide or show all boxes.
 - Drag and drop, copy, cut and paste files between Windows and WSL.
 - Open files with Linux default applications or choose another application with **Linux Open with**.
@@ -99,7 +100,7 @@ If an application cannot start, open **Windows PowerShell** in the folder contai
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.1.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.2.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 

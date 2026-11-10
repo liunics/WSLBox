@@ -49,7 +49,6 @@ namespace WSLBox
         private readonly Grid body = new Grid();
         private readonly TextBlock title = new TextBlock();
         private readonly TextBlock status = new TextBlock();
-        private readonly RowDefinition noticeRow = new RowDefinition { Height = new GridLength(24) };
         private readonly ListBox list = new ListBox();
         private readonly WrapPanel filters = new WrapPanel();
         private readonly ResizeGrip grip = new ResizeGrip();
@@ -58,6 +57,13 @@ namespace WSLBox
         private readonly Button collapseButton;
         private readonly DispatcherTimer refreshTimer = new DispatcherTimer();
         private readonly DispatcherTimer noticeTimer = new DispatcherTimer();
+        private readonly DispatcherTimer hoverTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(120) };
+        private bool hoverExpanded;
+        private bool Collapsed
+        {
+            get { return settings.Collapsed && !hoverExpanded; }
+            set { hoverTimer.Stop(); hoverExpanded = false; settings.Collapsed = value; }
+        }
         private readonly ContextMenu menu = new ContextMenu();
         private List<FileModel> models = new List<FileModel>();
         private bool busy, listing, initialized, opening, dragging, closing, applyingBounds, contextOpen;
@@ -113,7 +119,6 @@ namespace WSLBox
             var layout = new Grid();
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.RowDefinitions.Add(new RowDefinition());
-            layout.RowDefinitions.Add(noticeRow);
             plate.Child = layout; outer.Children.Add(plate); Content = outer;
 
             var header = new Grid { Height = 34, Background = Brushes.Transparent };
@@ -129,7 +134,7 @@ namespace WSLBox
                 return Done();
             });
             copyLinuxPath.FontFamily = new FontFamily("Segoe MDL2 Assets"); copyLinuxPath.FontSize = 16;
-            viewButton = HeaderButton(actions, "▦", L10n.T("ui.switch_icons_list"), () => { SetView(settings.ViewMode == "icons" ? "list" : "icons"); return Done(); });
+            viewButton = HeaderButton(actions, "", L10n.T("ui.switch_icons_list"), () => { SetView(settings.ViewMode == "icons" ? "list" : "icons"); return Done(); });
             lockButton = HeaderButton(actions, "◇", L10n.T("ui.lock_position_and_size"), () => { settings.Locked = !settings.Locked; ApplyAppearance(); Persist(); return Done(); });
             HeaderButton(actions, "+", L10n.T("ui.new_box"), () => { NewBox(); return Done(); });
             Button more = null;
@@ -184,7 +189,7 @@ namespace WSLBox
                         captionTransform = transform;
                         captionPeers = workspace == null ? new Rect[0] : workspace.SnapPeers(this);
                     }
-                    origin = WindowGeometry.Magnet(origin, new Size(Width, Height), WorkAreaAt(device), captionPeers);
+                    origin = WindowGeometry.Magnet(origin, BoundsIn(this).Size, WorkAreaAt(device), captionPeers);
                 }
                 bool previous = applyingBounds; applyingBounds = true;
                 try { Left = origin.X; Top = origin.Y; }
@@ -235,7 +240,7 @@ namespace WSLBox
                 button.Click += (s, e) => { settings.Filter = key; ApplyFilter(); Persist(); };
                 filters.Children.Add(button);
             }
-            list.Background = Brushes.Transparent; list.BorderThickness = new Thickness(0);
+            list.Background = Brushes.Transparent; list.BorderThickness = new Thickness(0); list.Padding = new Thickness(0);
             list.SelectionMode = SelectionMode.Extended; list.Foreground = Theme.Text;
             list.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((sender, e) => {
                 // Recycling must never move an active name editor onto a
@@ -244,7 +249,8 @@ namespace WSLBox
             }));
             list.ItemContainerStyle = (Style)Resources["FileItem"];
             ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
-            ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Visible);
+            ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Auto);
+            list.Style = (Style)Resources["FileList"];
             list.MouseDoubleClick += async (s, e) => {
                 if (busy || renameEditor != null) { e.Handled = true; return; }
                 var item = Ancestor<ListBoxItem>(e.OriginalSource as DependencyObject);
@@ -301,17 +307,19 @@ namespace WSLBox
             Grid.SetRow(body, 1); layout.Children.Add(body);
             status.Foreground = Theme.Muted; status.FontSize = 11; status.TextWrapping = TextWrapping.NoWrap;
             status.TextTrimming = TextTrimming.CharacterEllipsis;
-            status.Margin = new Thickness(5, 0, 15, 0); status.Visibility = Visibility.Collapsed;
+            status.Margin = new Thickness(0); status.Visibility = Visibility.Collapsed;
             status.Padding = new Thickness(3, 2, 3, 2);
             status.MaxHeight = 24; status.ClipToBounds = true;
-            // A fixed footer shares the plate's transparency. Messages never
-            // overlap filenames or resize the viewport when they appear.
+            // Canvas contributes zero desired size: messages float over the files
+            // without reserving a footer or changing the viewport.
             status.Background = Brushes.Transparent;
             status.Foreground = Theme.Text;
             status.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 0.7 };
-            status.VerticalAlignment = VerticalAlignment.Center;
-            status.HorizontalAlignment = HorizontalAlignment.Stretch;
-            Grid.SetRow(status, 2); layout.Children.Add(status);
+            status.HorizontalAlignment = HorizontalAlignment.Left;
+            var noticeLayer = new Canvas { IsHitTestVisible = false, ClipToBounds = true };
+            noticeLayer.SizeChanged += (sender, e) => status.MaxWidth = Math.Max(0, noticeLayer.ActualWidth - 24);
+            Canvas.SetLeft(status, 4); Canvas.SetBottom(status, 1); noticeLayer.Children.Add(status);
+            Grid.SetRow(noticeLayer, 1); Panel.SetZIndex(noticeLayer, 10); layout.Children.Add(noticeLayer);
             grip.Width = grip.Height = 15; grip.HorizontalAlignment = HorizontalAlignment.Right;
             grip.VerticalAlignment = VerticalAlignment.Bottom; grip.Opacity = 0.4; outer.Children.Add(grip);
             BuildMenus();
@@ -322,8 +330,12 @@ namespace WSLBox
             };
             PreviewKeyDown += OnKey;
             Loaded += async (s, e) => await Initialize();
+            MouseEnter += (s, e) => HoverEnter();
+            MouseLeave += (s, e) => { hoverTimer.Stop(); if (hoverExpanded) ScheduleHover(120); };
+            hoverTimer.Tick += (s, e) => HoverTick();
             IsVisibleChanged += async (s, e) => {
                 ++thumbnailGeneration;
+                if (!IsVisible) { hoverTimer.Stop(); SetHoverExpanded(false); }
                 if (IsVisible && initialized && !closing)
                 {
                     LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
@@ -340,7 +352,7 @@ namespace WSLBox
             StateChanged += OnWindowStateChanged;
             refreshTimer.Interval = TimeSpan.FromSeconds(5);
             refreshTimer.Tick += async (s, e) => {
-                if (!busy && !opening && !listing && !dragging && !captionPending && !contextOpen && !settings.Collapsed && WindowState != WindowState.Minimized)
+                if (!busy && !opening && !listing && !dragging && !captionPending && !contextOpen && !Collapsed && WindowState != WindowState.Minimized)
                     await RefreshFolder(false);
             };
             noticeTimer.Interval = TimeSpan.FromSeconds(4);
@@ -460,6 +472,14 @@ namespace WSLBox
             var snap = new MenuItem { Header = L10n.T("ui.edge_magnetism"), IsCheckable = true, IsChecked = settings.SnapToEdges != false };
             snap.Click += (s, e) => { settings.SnapToEdges = snap.IsChecked; Persist(); };
             menu.Items.Add(snap);
+            var hover = new MenuItem { Header = L10n.T("ui.expand_on_hover"), IsCheckable = true, IsChecked = settings.ExpandOnHover };
+            hover.Click += (sender, e) => {
+                settings.ExpandOnHover = hover.IsChecked;
+                if (!settings.ExpandOnHover) SetHoverExpanded(false);
+                Persist();
+            };
+            menu.Items.Add(hover);
+            menu.Opened += (sender, e) => hover.IsChecked = settings.ExpandOnHover;
             AddMenu(menu, L10n.T("ui.new_box_ctrl_n_ff9436"), () => { NewBox(); return Done(); });
             menu.Items.Add(new Separator());
             var startup = new MenuItem { Header = L10n.T("startup.label"), ToolTip = L10n.T("startup.hint"),
@@ -606,6 +626,9 @@ namespace WSLBox
         }
         internal Rect BoundsIn(BoxForm reference)
         {
+            Rect native;
+            if (WindowEffects.TryGetBounds(this, out native))
+                return new Rect(reference.ToDip(native.TopLeft), reference.ToDip(native.BottomRight));
             Point start = reference.ToDip(PointToScreen(new Point(0, 0)));
             Point end = reference.ToDip(PointToScreen(new Point(ActualWidth, ActualHeight)));
             return new Rect(start, end);
@@ -629,9 +652,19 @@ namespace WSLBox
         {
             IntPtr handle = new WindowInteropHelper(this).Handle;
             var source = PresentationSource.FromVisual(this) as HwndSource;
-            if (handle == IntPtr.Zero || source == null) return SystemParameters.WorkArea;
-            var work = System.Windows.Forms.Screen.FromHandle(handle).WorkingArea;
-            Matrix transform = source.CompositionTarget.TransformFromDevice;
+            var dpi = VisualTreeHelper.GetDpi(this);
+            Matrix transform = source == null ? new Matrix(1 / dpi.DpiScaleX, 0, 0, 1 / dpi.DpiScaleY, 0, 0) : source.CompositionTarget.TransformFromDevice;
+            System.Drawing.Rectangle work;
+            if (handle == IntPtr.Zero || source == null)
+            {
+                Rect saved = normalBounds;
+                var device = new System.Drawing.Rectangle((int)Math.Round(saved.Left * dpi.DpiScaleX), (int)Math.Round(saved.Top * dpi.DpiScaleY),
+                    Math.Max(1, (int)Math.Round(saved.Width * dpi.DpiScaleX)), Math.Max(1, (int)Math.Round(saved.Height * dpi.DpiScaleY)));
+                var screen = System.Windows.Forms.Screen.FromRectangle(device);
+                if (screen.Primary) return SystemParameters.WorkArea;
+                work = screen.WorkingArea;
+            }
+            else work = System.Windows.Forms.Screen.FromHandle(handle).WorkingArea;
             Point origin = transform.Transform(new Point(work.Left, work.Top));
             Point end = transform.Transform(new Point(work.Right, work.Bottom));
             return new Rect(origin, end);
@@ -655,7 +688,7 @@ namespace WSLBox
         }
         private void RestoreForDrag(Point pointer, Rect work)
         {
-            RestoreBoundsAt(pointer, work, settings.Collapsed);
+            RestoreBoundsAt(pointer, work, Collapsed);
         }
         private void RestoreBoundsAt(Point? pointer, Rect work, bool keepCollapsed, bool unlock = false)
         {
@@ -663,7 +696,7 @@ namespace WSLBox
             bool previous = applyingBounds; applyingBounds = true;
             try
             {
-                settings.Maximized = false; settings.EdgeLayout = ""; settings.MaximizeReturnEdge = ""; settings.Collapsed = keepCollapsed;
+                settings.Maximized = false; settings.EdgeLayout = ""; settings.MaximizeReturnEdge = ""; Collapsed = keepCollapsed;
                 if (unlock) settings.Locked = false;
                 WindowState = WindowState.Normal;
                 MinHeight = keepCollapsed ? 42 : 180;
@@ -685,7 +718,7 @@ namespace WSLBox
             {
                 if (settings.MaximizeReturnEdge != "")
                 {
-                    settings.Maximized = false; settings.Collapsed = false; settings.EdgeLayout = settings.MaximizeReturnEdge;
+                    settings.Maximized = false; Collapsed = false; settings.EdgeLayout = settings.MaximizeReturnEdge;
                     settings.MaximizeReturnEdge = ""; ApplyWindowLayout(null); Persist();
                 }
                 else { RestoreBoundsAt(null, CurrentWorkArea(), false); Persist(); }
@@ -693,14 +726,14 @@ namespace WSLBox
             }
             settings.MaximizeReturnEdge = settings.EdgeLayout;
             RememberBoundsCore(true);
-            settings.Collapsed = false; settings.EdgeLayout = ""; settings.Maximized = true;
+            Collapsed = false; settings.EdgeLayout = ""; settings.Maximized = true;
             ApplyWindowLayout(null); Persist();
         }
         private void ApplyPointerSnap(PointerSnap target, Rect work)
         {
             if (target == PointerSnap.Maximize) settings.MaximizeReturnEdge = settings.EdgeLayout;
             RememberBoundsCore(target == PointerSnap.Maximize);
-            settings.Collapsed = false;
+            Collapsed = false;
             settings.Maximized = target == PointerSnap.Maximize;
             settings.EdgeLayout = target == PointerSnap.Left ? "left" : target == PointerSnap.Right ? "right" : "";
             ApplyWindowLayout(work); Persist();
@@ -723,6 +756,9 @@ namespace WSLBox
             title.Text = !String.IsNullOrWhiteSpace(settings.Title) ? settings.Title :
                 path.Length == 0 ? (String.IsNullOrEmpty(settings.Distro) ? L10n.T("ui.folder_box") : settings.Distro) : path.Split('/').Last();
             title.ToolTip = settings.Distro + L10n.T("ui.current_folder") + currentFolder + L10n.T("ui.bound_folder") + settings.Folder + "\n" + models.Count + L10n.T("ui.items");
+            if (status.Visibility == Visibility.Visible && !String.IsNullOrEmpty(status.Text)
+                && status.Text != models.Count + L10n.T("ui.items"))
+                title.ToolTip = Convert.ToString(title.ToolTip) + "\n\n" + status.Text;
             Title = "WSLBox · " + title.Text;
         }
         private void ApplyAppearance()
@@ -732,12 +768,11 @@ namespace WSLBox
             lockButton.FontSize = 16;
             lockButton.Content = settings.Locked ? "\uE72E" : "\uE785";
             lockButton.ToolTip = settings.Locked ? L10n.T("ui.locked_click_to_unlock_position_and_size") : L10n.T("ui.lock_position_and_size");
-            collapseButton.Content = settings.Collapsed ? "⌄" : "⌃";
-            body.Visibility = settings.Collapsed ? Visibility.Collapsed : Visibility.Visible;
-            grip.Visibility = settings.Collapsed || settings.Locked ? Visibility.Collapsed : Visibility.Visible;
-            ResizeMode = settings.Locked || settings.Collapsed ? ResizeMode.NoResize : ResizeMode.CanResizeWithGrip;
-            noticeRow.Height = new GridLength(settings.Collapsed ? 0 : 24);
-            if (settings.Collapsed) status.Visibility = Visibility.Collapsed;
+            collapseButton.Content = Collapsed ? "⌄" : "⌃";
+            body.Visibility = Collapsed ? Visibility.Collapsed : Visibility.Visible;
+            grip.Visibility = Collapsed || settings.Locked ? Visibility.Collapsed : Visibility.Visible;
+            ResizeMode = settings.Locked || Collapsed ? ResizeMode.NoResize : ResizeMode.CanResizeWithGrip;
+            if (Collapsed) status.Visibility = Visibility.Collapsed;
         }
         private void ApplyWindowLayout(Rect? requestedWork)
         {
@@ -746,7 +781,7 @@ namespace WSLBox
             try
             {
                 ApplyAppearance();
-                if (settings.Collapsed)
+                if (Collapsed)
                 {
                     Rect work = requestedWork ?? CurrentWorkArea();
                     Rect edge = WindowGeometry.Half(work, settings.EdgeLayout == "right");
@@ -755,6 +790,12 @@ namespace WSLBox
                     Height = 44;
                     if (settings.Maximized) { Left = work.Left; Top = work.Top; }
                     else if (settings.EdgeLayout != "") { Left = edge.Left; Top = edge.Top; }
+                }
+                else if (hoverExpanded && settings.Maximized)
+                {
+                    Rect work = requestedWork ?? CurrentWorkArea();
+                    WindowState = WindowState.Normal; MinHeight = 180;
+                    Left = work.Left; Top = work.Top; Width = work.Width; Height = work.Height;
                 }
                 else
                 {
@@ -775,22 +816,55 @@ namespace WSLBox
             }
             finally { applyingBounds = previous; }
         }
+        private void ScheduleHover(int milliseconds)
+        {
+            hoverTimer.Stop(); hoverTimer.Interval = TimeSpan.FromMilliseconds(milliseconds); hoverTimer.Start();
+        }
+        private bool HoverBlocked(bool expanding)
+        {
+            return dragging || captionPending || contextOpen || menu.IsOpen || renameEditor != null
+                || OwnedWindows.Cast<Window>().Any(window => window.IsVisible)
+                || (!expanding && (busy || opening));
+        }
+        private void HoverEnter()
+        {
+            hoverTimer.Stop();
+            if (closing || !IsVisible || !settings.ExpandOnHover || !settings.Collapsed || hoverExpanded) return;
+            if (HoverBlocked(true)) { ScheduleHover(80); return; }
+            SetHoverExpanded(true);
+        }
+        private void HoverTick()
+        {
+            hoverTimer.Stop();
+            if (closing || !IsVisible || !settings.ExpandOnHover) return;
+            if (IsMouseOver == hoverExpanded) return;
+            if (HoverBlocked(IsMouseOver)) { ScheduleHover(80); return; }
+            SetHoverExpanded(IsMouseOver && settings.Collapsed);
+        }
+        private void SetHoverExpanded(bool expanded)
+        {
+            expanded = expanded && settings.ExpandOnHover && settings.Collapsed && !closing;
+            if (hoverExpanded == expanded) return;
+            hoverExpanded = expanded; ++thumbnailGeneration;
+            ApplyWindowLayout(null);
+            if (expanded && initialized && IsVisible) LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
+        }
         private void ToggleCollapsed()
         {
-            if (!settings.Collapsed)
+            if (!Collapsed)
             {
                 if (WindowState == WindowState.Maximized) settings.Maximized = true;
                 else RememberBounds();
             }
-            settings.Collapsed = !settings.Collapsed; ++thumbnailGeneration; ApplyWindowLayout(null); Persist();
-            if (!settings.Collapsed) LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
+            Collapsed = !Collapsed; ++thumbnailGeneration; ApplyWindowLayout(null); Persist();
+            if (!Collapsed) LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
         }
         private void SetView(string mode, bool save = true)
         {
             if (renameEditor != null) renameEditor.Cancel();
             settings.ViewMode = mode == "list" ? "list" : "icons";
             bool icons = settings.ViewMode == "icons";
-            viewButton.Content = icons ? "≡" : "▦";
+            viewButton.Content = Theme.HeaderIcon(icons ? "list" : "grid");
             viewButton.ToolTip = icons ? L10n.T("ui.switch_to_list") : L10n.T("ui.switch_to_icons");
             list.ItemsPanel = (ItemsPanelTemplate)XamlReader.Parse(icons
                 ? "<ItemsPanelTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><WrapPanel/></ItemsPanelTemplate>"
@@ -800,7 +874,7 @@ namespace WSLBox
             int iconSize = settings.IconSize, itemWidth = Math.Max(74, iconSize + 44), itemHeight = iconSize + 52;
             list.ItemTemplate = (DataTemplate)XamlReader.Parse(icons
                 ? "<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><StackPanel Width='" + itemWidth + "' Height='" + itemHeight + "' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='" + iconSize + "' Height='" + iconSize + "' Margin='0,5,0,6'/><TextBlock Name='FileName' Text='{Binding Label}' TextAlignment='Center' TextWrapping='Wrap' TextTrimming='CharacterEllipsis' MaxHeight='36' FontSize='12'/></StackPanel></DataTemplate>"
-                : @"<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><DockPanel Height='29' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='20' Height='20' Margin='3,0,9,0' DockPanel.Dock='Left'/><TextBlock Name='FileName' Text='{Binding Label}' VerticalAlignment='Center' TextTrimming='CharacterEllipsis'/></DockPanel></DataTemplate>");
+                : @"<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><DockPanel Height='29' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='20' Height='20' Margin='3,0,9,0' DockPanel.Dock='Left'/><TextBlock Name='FileName' Text='{Binding Label}' VerticalAlignment='Center' TextTrimming='CharacterEllipsis' Margin='0,0,10,0'/></DockPanel></DataTemplate>");
             if (save) Persist();
         }
         private static string Category(Entry entry)
@@ -888,7 +962,7 @@ namespace WSLBox
             return icons;
         }
         private bool CanLoadThumbnails
-        { get { return !closing && IsVisible && !settings.Collapsed && WindowState != WindowState.Minimized && settings.ShowThumbnails != false; } }
+        { get { return !closing && IsVisible && !Collapsed && WindowState != WindowState.Minimized && settings.ShowThumbnails != false; } }
         private async void LoadThumbnails(int generation, string distro, string folder)
         {
             if (!CanLoadThumbnails || thumbnailRunning == generation) return;
@@ -935,7 +1009,8 @@ namespace WSLBox
         private void Notify(string message, bool temporary = true)
         {
             if (closing) return;
-            status.Text = message; status.ToolTip = message; status.Visibility = settings.Collapsed ? Visibility.Collapsed : Visibility.Visible;
+            status.Text = message; status.ToolTip = message; status.Visibility = Collapsed ? Visibility.Collapsed : Visibility.Visible;
+            UpdateTitle();
             noticeTimer.Stop(); if (temporary) noticeTimer.Start();
         }
         private void Report(Exception ex)
@@ -1065,7 +1140,7 @@ namespace WSLBox
         {
             Key key = e.Key == Key.System ? e.SystemKey : e.Key;
             if (FileKeyRouting.DeferToFocusedControl(Keyboard.FocusedElement is TextBoxBase,
-                Keyboard.FocusedElement is ButtonBase, settings.Collapsed, key, Keyboard.Modifiers)) return;
+                Keyboard.FocusedElement is ButtonBase, Collapsed, key, Keyboard.Modifiers)) return;
             bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
             bool alt = (Keyboard.Modifiers & ModifierKeys.Alt) != 0;
             if (ctrl && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && key == Key.R) RestoreWindow();
@@ -1088,7 +1163,7 @@ namespace WSLBox
             else if (key == Key.F5 || (ctrl && key == Key.R)) await RefreshFolder(true);
             else if (key == Key.Apps || ((Keyboard.Modifiers & ModifierKeys.Shift) != 0 && key == Key.F10))
             {
-                if (settings.Collapsed) ShowBoxMenu(this);
+                if (Collapsed) ShowBoxMenu(this);
                 else await NativeContextMenu(list.PointToScreen(new Point(20, 20)));
             }
             else if (key == Key.Escape) list.SelectedItems.Clear();
@@ -1299,7 +1374,7 @@ namespace WSLBox
             RememberBounds();
             closing = true;
             ++thumbnailGeneration;
-            refreshTimer.Stop(); noticeTimer.Stop();
+            refreshTimer.Stop(); noticeTimer.Stop(); hoverTimer.Stop();
             captionPending = captionMoving = false; captionSnap = PointerSnap.None;
             WindowEffects.DisableTransitions(this);
             // Dispose the overlay before the owner is destroyed. A cached full-screen

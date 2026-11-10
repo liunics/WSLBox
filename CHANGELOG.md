@@ -2,6 +2,14 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.2.0
+
+- Float status messages over the file view without reserving a footer row.
+- Add an optional temporary hover preview for collapsed boxes, with automatic collapse when the pointer leaves.
+- Overlay scrollbars without reserving an extra column, keeping the file layout stable.
+- Use distinct vector controls for list and icon views.
+- Align neighboring boxes using their actual displayed window boundaries.
+
 ## 1.1.0
 
 - Add a per-box Show hidden files option and Ctrl+H shortcut.

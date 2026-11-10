@@ -88,6 +88,7 @@ namespace WSLBox
         [DataMember] public bool SortDescending;
         [DataMember] public string EdgeLayout = "";
         [DataMember] public bool Collapsed;
+        [DataMember] public bool ExpandOnHover;
         [DataMember] public bool Locked;
         [DataMember] public bool Maximized;
         [DataMember] public string MaximizeReturnEdge = "";

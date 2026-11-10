@@ -10,7 +10,7 @@ WSLBox 是专为 WSL2 文件夹设计的 Windows 桌面盒子。在透明格子�
 
 ## 下载与运行
 
-下载 **[WSLBox-v1.1.0.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
+下载 **[WSLBox-v1.2.0.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
 
 打开“文件夹设置”，选择 WSL 发行版和要展示的文件夹，并为格子设置名称。
 
@@ -37,6 +37,7 @@ sudo apt install python3 python3-gi gir1.2-gtk-3.0 dbus libglib2.0-bin libgdk-pi
 - 多个独立格子，分别保存文件夹、位置和大小。
 - 可调背景透明度、图标与列表视图、排序、筛选和缩略图。
 - 锁定、收起、最大化及还原格子，支持屏幕贴边和格子之间吸附。
+- 可选的悬停临时展开：移入展开，移出自动恢复收起。
 - 双击 Windows 桌面空白处隐藏或显示全部格子。
 - 在 Windows 与 WSL 之间拖放、复制、剪切和粘贴文件。
 - 使用 Linux 默认应用程序打开文件，或通过“Linux 打开方式”选择其他应用。
@@ -99,7 +100,7 @@ WSLBox 支持所选 Linux 发行版中已配置的 Fcitx、Fcitx5 和 IBus。在
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.1.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.2.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 
