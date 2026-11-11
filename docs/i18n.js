@@ -46,7 +46,7 @@ window.WSLBOX_I18N = {
   },
   "hero.label": {
     "en": "<span class=\"label-dot\"></span> Your desktop. Your workspace.",
-    "zh-CN": "<span class=\"label-dot\"></span> 你的桌面，你的文件格子"
+    "zh-CN": "<span class=\"label-dot\"></span> 你的桌面，你的文件盒子"
   },
   "hero.path": {
     "en": "From your WSL",
@@ -58,7 +58,7 @@ window.WSLBOX_I18N = {
   },
   "hero.screenshot": {
     "en": "WSLBox transparent desktop box with Linux folders and window controls",
-    "zh-CN": "WSLBox 的透明桌面格子，显示 Linux 文件夹和顶栏工具"
+    "zh-CN": "WSLBox 的透明桌面盒子，显示 Linux 文件夹和顶栏工具"
   },
   "strip.windows": {
     "en": "Native Windows integration",
@@ -70,7 +70,7 @@ window.WSLBOX_I18N = {
   },
   "strip.boxes": {
     "en": "Independent desktop boxes",
-    "zh-CN": "独立桌面格子"
+    "zh-CN": "独立桌面盒子"
   },
   "strip.desktop": {
     "en": "No full Linux desktop required",
@@ -86,11 +86,11 @@ window.WSLBOX_I18N = {
   },
   "features.0.title": {
     "en": "One folder. One box.",
-    "zh-CN": "一个文件夹，一个格子"
+    "zh-CN": "一个文件夹，一个盒子"
   },
   "features.0.body": {
     "en": "Bind each box to its own folder, with a custom name, opacity and position. Switch between icons and lists, or collapse a box to its header.",
-    "zh-CN": "多个格子分别绑定目录，自定义名称、透明度和位置。图标与列表自由切换，收起时只留下顶栏。"
+    "zh-CN": "多个盒子分别绑定目录，自定义名称、透明度和位置。图标与列表自由切换，收起时只留下顶栏。"
   },
   "features.0.tag": {
     "en": "A lighter desktop",
@@ -138,7 +138,7 @@ window.WSLBOX_I18N = {
   },
   "details.0.body": {
     "en": "Need a clear desktop? Double-click an empty desktop area. You can also restore all boxes from the tray.",
-    "zh-CN": "需要一张干净桌面时，双击即可切换；托盘也能恢复全部格子。"
+    "zh-CN": "需要一张干净桌面时，双击即可切换；托盘也能恢复全部盒子。"
   },
   "details.1.title": {
     "en": "Edit names in place",
@@ -274,7 +274,7 @@ window.WSLBOX_I18N = {
   },
   "footer.brand": {
     "en": "WSLBox · Open-source desktop boxes",
-    "zh-CN": "WSLBox · 开源桌面文件格子"
+    "zh-CN": "WSLBox · 开源桌面文件盒子"
   },
   "footer.body": {
     "en": "Made for work between Windows and Linux.",
@@ -286,7 +286,7 @@ window.WSLBOX_I18N = {
   },
   "page.description": {
     "en": "WSLBox brings WSL2 folders to your Windows desktop in transparent boxes. Browse files, drag and drop across systems, and open them with their default Linux apps through WSLg.",
-    "zh-CN": "WSLBox 是面向 WSL2 的透明桌面文件格子：在 Windows 桌面浏览 Linux 文件夹，跨系统拖放，用 Linux 默认应用打开。"
+    "zh-CN": "WSLBox 是面向 WSL2 的透明桌面文件盒子：在 Windows 桌面浏览 Linux 文件夹，跨系统拖放，用 Linux 默认应用打开。"
   },
   "download.view": {
     "en": "View releases ↓",

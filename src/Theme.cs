@@ -34,6 +34,7 @@ namespace WSLBox
    <ContentPresenter/></Border><ControlTemplate.Triggers>
    <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='plate' Property='Background' Value='#23FFFFFF'/></Trigger>
    <Trigger Property='IsSelected' Value='True'><Setter TargetName='plate' Property='Background' Value='#665486BC'/><Setter TargetName='plate' Property='BorderBrush' Value='#AA8CBDF3'/></Trigger>
+   <DataTrigger Binding='{Binding IsDropTarget}' Value='True'><Setter TargetName='plate' Property='Background' Value='#665486BC'/><Setter TargetName='plate' Property='BorderBrush' Value='#AA8CBDF3'/></DataTrigger>
   </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
 </Style>
 <Style x:Key='FileList' TargetType='ListBox'>

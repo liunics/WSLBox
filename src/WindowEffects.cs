@@ -31,6 +31,17 @@ namespace WSLBox
             }
             rectangle = Rect.Empty; return false;
         }
+        internal static int ResizeHit(Rect bounds, Point point, DpiScale dpi)
+        {
+            if (!bounds.Contains(point)) return 0;
+            double right = (bounds.Right - point.X) / dpi.DpiScaleX;
+            double bottom = (bounds.Bottom - point.Y) / dpi.DpiScaleY;
+            // Keep the full bottom-right grip usable for diagonal sizing.
+            if (right <= 15 && bottom <= 15) return 17; // HTBOTTOMRIGHT
+            if (right <= 5) return 11; // HTRIGHT
+            if (bottom <= 5) return 15; // HTBOTTOM
+            return 0;
+        }
         internal static void DisableTransitions(Window window)
         {
             IntPtr handle = new WindowInteropHelper(window).Handle;

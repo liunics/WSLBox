@@ -185,7 +185,7 @@ namespace WSLBox
         }
         internal static Window CreateAbout(Window owner)
         {
-            var window = new Window { Title = L10n.T("ui.about_wslbox"), Icon = Branding.Image, Width = 510, MinWidth = 360,
+            var window = new Window { Title = L10n.T("ui.about"), Icon = Branding.Image, Width = 510, MinWidth = 360,
                 SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
                 ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 13,

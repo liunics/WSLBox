@@ -130,8 +130,6 @@ namespace WSLBox
             menu.Opening += (s, e) => startup.Checked = StartupRegistration.IsEnabled;
             menu.Items.Add(startup);
             menu.Items.Add(L10n.T("ui.new_box_5cc522"), null, (s, e) => CreateBox(windows.FirstOrDefault()));
-            menu.Items.Add(L10n.T("ui.help"), null, (s, e) => Dialogs.Help(windows.FirstOrDefault(w => w.IsVisible)));
-            menu.Items.Add(L10n.T("ui.about_wslbox"), null, (s, e) => Dialogs.About(windows.FirstOrDefault(w => w.IsVisible)));
             var language = new Forms.ToolStripMenuItem("Language / 语言");
             foreach (var choice in L10n.Choices)
             {
@@ -144,7 +142,9 @@ namespace WSLBox
             };
             menu.Items.Add(language);
             menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add(L10n.T("ui.exit_keep_layout_5dd492"), null, (s, e) => Exit());
+            menu.Items.Add(L10n.T("ui.help_and_shortcuts"), null, (s, e) => Dialogs.Help(windows.FirstOrDefault(w => w.IsVisible)));
+            menu.Items.Add(L10n.T("ui.about"), null, (s, e) => Dialogs.About(windows.FirstOrDefault(w => w.IsVisible)));
+            menu.Items.Add(L10n.T("ui.exit"), null, (s, e) => Exit());
             tray.ContextMenuStrip = menu;
             tray.DoubleClick += (s, e) => ShowAll();
         }
@@ -190,7 +190,7 @@ namespace WSLBox
                 Distro = dialog.Distro, Folder = dialog.Folder, Title = dialog.BoxTitle,
                 X = original.X + 36, Y = original.Y + 36, Width = original.Width, Height = original.Height,
                 Bounds = original.Bounds == null ? null : new SavedWindowBounds { Left = original.Bounds.Left + 36, Top = original.Bounds.Top + 36, Width = original.Bounds.Width, Height = original.Bounds.Height },
-                BackgroundOpacity = original.BackgroundOpacity, ViewMode = original.ViewMode, IconSize = original.IconSize,
+                BackgroundOpacity = original.BackgroundOpacity, ViewMode = original.ViewMode, IconSize = original.IconSize, IconSpacing = original.IconSpacing,
                 SortBy = original.SortBy, SortDescending = original.SortDescending, ShowThumbnails = original.ShowThumbnails, ShowHidden = original.ShowHidden, ExpandOnHover = original.ExpandOnHover
             };
             box.Normalize(); layout.Boxes.Add(box); Open(box); Save();

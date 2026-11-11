@@ -2,6 +2,14 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.3.0
+
+- Add compact, standard and roomy icon spacing per box alongside the three icon sizes.
+- Resize boxes by dragging the right edge, bottom edge or bottom-right corner.
+- Cancel drops into the source folder and highlight the destination folder until the transfer finishes.
+- Retry copy and cut when Windows temporarily cannot open the clipboard.
+- Group application commands at the bottom of the tray and box menus, with file actions in the selected-file context menu.
+
 ## 1.2.0
 
 - Float status messages over the file view without reserving a footer row.

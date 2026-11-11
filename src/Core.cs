@@ -84,6 +84,7 @@ namespace WSLBox
         [DataMember] public string ViewMode = "icons";
         [DataMember] public string Filter = "all";
         [DataMember] public int IconSize = 42;
+        [DataMember] public string IconSpacing = "standard";
         [DataMember] public string SortBy = "name";
         [DataMember] public bool SortDescending;
         [DataMember] public string EdgeLayout = "";
@@ -106,6 +107,7 @@ namespace WSLBox
             if (ViewMode != "list") ViewMode = "icons";
             if (!new[] { "all", "folders", "documents", "images", "archives", "other" }.Contains(Filter)) Filter = "all";
             if (!ShowThumbnails.HasValue) ShowThumbnails = true;
+            if (IconSpacing != "compact" && IconSpacing != "roomy") IconSpacing = "standard";
             if (IconSize != 24 && IconSize != 42 && IconSize != 64) IconSize = 42;
             if (SortBy != "size" && SortBy != "type" && SortBy != "modified") SortBy = "name";
             if (EdgeLayout != "left" && EdgeLayout != "right") EdgeLayout = "";
@@ -248,6 +250,23 @@ namespace WSLBox
         {
             return String.Equals(Canonical(a), Canonical(b), IsWsl(a) || IsWsl(b)
                 ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static bool CanDrop(string[] sources, string destination, bool move)
+        {
+            if (sources == null || sources.Length == 0) return false;
+            try
+            {
+                ValidateTransfer(sources, destination, move);
+                return !sources.Any(source =>
+                {
+                    string parent = System.IO.Path.GetDirectoryName(Canonical(source));
+                    return parent != null && Same(parent, destination);
+                });
+            }
+            catch (IOException) { return false; }
+            catch (ArgumentException) { return false; }
+            catch (NotSupportedException) { return false; }
         }
 
         public static void ValidateTransfer(string[] sources, string destination, bool move)

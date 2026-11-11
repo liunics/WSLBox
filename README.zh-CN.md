@@ -4,15 +4,15 @@
 <p align="center">把 Linux 文件夹放到 Windows 桌面。</p>
 <p align="center"><a href="https://liunics.github.io/WSLBox/">软件介绍</a> · <a href="https://github.com/liunics/WSLBox/releases">下载</a> · <a href="https://github.com/liunics/WSLBox/issues">问题反馈</a></p>
 
-WSLBox 是专为 WSL2 文件夹设计的 Windows 桌面盒子。在透明格子中浏览 Linux 文件，与 Windows 资源管理器传输文件，并通过 WSLg 使用 Linux 默认应用程序打开文件。
+WSLBox 是专为 WSL2 文件夹设计的 Windows 桌面盒子。在透明盒子中浏览 Linux 文件，与 Windows 资源管理器传输文件，并通过 WSLg 使用 Linux 默认应用程序打开文件。
 
-![WSLBox 桌面格子](assets/window.png)
+![WSLBox 桌面盒子](assets/window.png)
 
 ## 下载与运行
 
-下载 **[WSLBox-v1.2.0.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
+下载 **[WSLBox-v1.3.0.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
 
-打开“文件夹设置”，选择 WSL 发行版和要展示的文件夹，并为格子设置名称。
+打开“文件夹设置”，选择 WSL 发行版和要展示的文件夹，并为盒子设置名称。
 
 ## 环境要求
 
@@ -34,35 +34,35 @@ sudo apt install python3 python3-gi gir1.2-gtk-3.0 dbus libglib2.0-bin libgdk-pi
 
 ## 功能
 
-- 多个独立格子，分别保存文件夹、位置和大小。
+- 多个独立盒子，分别保存文件夹、位置和大小。
 - 可调背景透明度、图标与列表视图、排序、筛选和缩略图。
-- 锁定、收起、最大化及还原格子，支持屏幕贴边和格子之间吸附。
+- 锁定、收起、最大化及还原盒子，支持屏幕贴边和盒子之间吸附。
 - 可选的悬停临时展开：移入展开，移出自动恢复收起。
-- 双击 Windows 桌面空白处隐藏或显示全部格子。
+- 双击 Windows 桌面空白处隐藏或显示全部盒子。
 - 在 Windows 与 WSL 之间拖放、复制、剪切和粘贴文件。
 - 使用 Linux 默认应用程序打开文件，或通过“Linux 打开方式”选择其他应用。
 - 原位重命名、新建文件夹，普通删除进入 Linux 回收站。
 - 使用 Windows 文件右键菜单，并将 Linux 操作单独分组。
 - 鼠标前进后退导航、键盘快捷键和 Linux 路径复制。
-- 按格子设置是否显示隐藏文件，支持 Ctrl+H。
-- 可选的 Windows 登录时启动。
+- 按盒子设置是否显示隐藏文件，支持 Ctrl+H。
+- 可选的开机自启。
 - English、简体中文及跟随系统语言。
 - 项目链接、检查更新，以及分组的帮助和快捷键表格。
 
 ## 界面语言
 
-在菜单的 **Language / 语言** 中选择“跟随系统”、简体中文或 English。重新启动 WSLBox 后，对全部格子生效。
+在菜单的 **Language / 语言** 中选择“跟随系统”、简体中文或 English。重新启动 WSLBox 后，对全部盒子生效。
 
-## 登录时启动
+## 开机自启
 
-在托盘或格子菜单开启“登录时启动”，即可在登录 Windows 时自动运行 WSLBox。此选项默认关闭。请将 EXE 保存在固定位置；移动后，关闭并重新开启此选项。
+在托盘或盒子菜单开启“开机自启”，即可在登录 Windows 时自动运行 WSLBox。此选项默认关闭。请将 EXE 保存在固定位置；移动后，关闭并重新开启此选项。
 
 ## 常用操作
 
 | 操作 | 方法 |
 |---|---|
 | 打开文件或进入目录 | 双击或 Enter |
-| 在 Windows 资源管理器打开当前目录 | 双击格子内部空白处 |
+| 在 Windows 资源管理器打开当前目录 | 双击盒子内部空白处 |
 | 复制当前 Linux 目录路径 | 顶栏复制按钮 |
 | 返回设置的目录 | Alt+Home |
 | 后退或前进 | 鼠标侧键或 Alt+←/→ |
@@ -70,7 +70,7 @@ sudo apt install python3 python3-gi gir1.2-gtk-3.0 dbus libglib2.0-bin libgdk-pi
 | 重命名 | F2，Enter 确认、Esc 取消 |
 | 全选 | Ctrl+A |
 | 新建文件夹 | Ctrl+Shift+N |
-| 新建格子 | Ctrl+N |
+| 新建盒子 | Ctrl+N |
 | 移到 Linux 回收站 | Delete |
 | 永久删除 | Shift+Delete，需确认 |
 | 文件夹设置 | Ctrl+L |
@@ -100,7 +100,7 @@ WSLBox 支持所选 Linux 发行版中已配置的 Fcitx、Fcitx5 和 IBus。在
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.2.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.3.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 

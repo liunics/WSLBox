@@ -359,7 +359,7 @@ namespace WSLBox
                 InsertMenu(menu, end++, 0x400, (UIntPtr)(Custom + 4), L10n.T("ui.help_and_shortcuts"));
                 InsertMenu(menu, end++, 0x400 | 0x800, UIntPtr.Zero, null);
                 InsertMenu(menu, end++, 0x400, (UIntPtr)(Custom + 34), L10n.T("ui.close_this_box"));
-                InsertMenu(menu, end, 0x400, (UIntPtr)(Custom + 35), L10n.T("ui.exit_keep_layout"));
+                InsertMenu(menu, end, 0x400, (UIntPtr)(Custom + 35), L10n.T("ui.exit"));
             }
             CleanMenuLabels(menu, new HashSet<IntPtr>());
         }

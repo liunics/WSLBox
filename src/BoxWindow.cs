@@ -24,6 +24,12 @@ namespace WSLBox
         public string Path { get { return Entry.Path; } }
         private ImageSource icon;
         public bool ThumbnailPending { get; set; }
+        private bool dropTarget;
+        public bool IsDropTarget
+        {
+            get { return dropTarget; }
+            set { if (dropTarget != value) { dropTarget = value; Changed("IsDropTarget"); } }
+        }
         public ImageSource Icon { get { return icon; } set { icon = value; Changed("Icon"); } }
         public event PropertyChangedEventHandler PropertyChanged;
         private void Changed(string name) { if (PropertyChanged != null) PropertyChanged(this, new PropertyChangedEventArgs(name)); }
@@ -65,6 +71,8 @@ namespace WSLBox
             set { hoverTimer.Stop(); hoverExpanded = false; settings.Collapsed = value; }
         }
         private readonly ContextMenu menu = new ContextMenu();
+        private readonly ContextMenu fileMenu = new ContextMenu();
+        private bool IsContextMenuOpen { get { return contextOpen || fileMenu.IsOpen; } }
         private List<FileModel> models = new List<FileModel>();
         private bool busy, listing, initialized, opening, dragging, closing, applyingBounds, contextOpen;
         private Entry[] listedEntries;
@@ -72,7 +80,12 @@ namespace WSLBox
         private readonly Dictionary<string, ImageSource> decodedImages = new Dictionary<string, ImageSource>(StringComparer.Ordinal);
         private Point dragStart;
         private FileModel dragOrigin;
+        private FileModel highlightedDropFolder;
+        private bool showingDropPreview, dropInProgress;
+        private static int clipboardWriteVersion;
+        private const int ClipboardCannotOpen = unchecked((int)0x800401D0);
         private Rect normalBounds;
+        private Rect sizingStart = Rect.Empty;
         private bool captionPending, captionMoving, restoringCaption;
         private Point captionDownScreen, captionDownLocal, captionOrigin, captionPointer;
         private double captionRatio, captionOffset;
@@ -89,7 +102,7 @@ namespace WSLBox
         public string CurrentFolder { get { return currentFolder; } }
         internal bool IsClosing { get { return closing; } }
         public bool EditingName { get { return renameEditor != null; } }
-        public bool CanClose { get { return !closing && !busy && !opening && !dragging && !contextOpen && !captionMoving; } }
+        public bool CanClose { get { return !closing && !busy && !opening && !dragging && !IsContextMenuOpen && !captionMoving && sizingStart.IsEmpty; } }
 
         public BoxForm(Settings settings, BoxWorkspace workspace = null)
         {
@@ -129,9 +142,10 @@ namespace WSLBox
             title.Margin = new Thickness(4, 0, 8, 0); header.Children.Add(title);
             var actions = new StackPanel { Orientation = Orientation.Horizontal };
             Grid.SetColumn(actions, 1); header.Children.Add(actions);
-            var copyLinuxPath = HeaderButton(actions, "\uE8C8", L10n.T("ui.copy_current_folder_s_linux_path"), () => {
-                if (!String.IsNullOrEmpty(currentFolder)) { Clipboard.SetText(currentFolder); Notify(L10n.T("ui.linux_path_copied")); }
-                return Done();
+            var copyLinuxPath = HeaderButton(actions, "\uE8C8", L10n.T("ui.copy_current_folder_s_linux_path"), async () => {
+                string path = currentFolder;
+                if (!String.IsNullOrEmpty(path))
+                    await WriteClipboard(() => Clipboard.SetText(path), L10n.T("ui.linux_path_copied"));
             });
             copyLinuxPath.FontFamily = new FontFamily("Segoe MDL2 Assets"); copyLinuxPath.FontSize = 16;
             viewButton = HeaderButton(actions, "", L10n.T("ui.switch_icons_list"), () => { SetView(settings.ViewMode == "icons" ? "list" : "icons"); return Done(); });
@@ -283,26 +297,48 @@ namespace WSLBox
                     DragDrop.DoDragDrop(list, FileData(paths, false), DragDropEffects.Copy | DragDropEffects.Move);
                 }
                 catch (Exception ex) { Report(ex); }
-                finally { dragging = false; dragOrigin = null; }
+                finally { dragging = false; dragOrigin = null; if (!busy) ClearDropPreview(); }
                 await RefreshFolder(false);
             };
             list.AllowDrop = true;
-            list.PreviewDragOver += (s, e) => {
-                e.Effects = busy || !initialized || !e.Data.GetDataPresent(DataFormats.FileDrop)
-                    ? DragDropEffects.None : DropEffect(e.KeyStates, e.AllowedEffects);
-                if (e.Effects != DragDropEffects.None)
-                    Notify((e.Effects == DragDropEffects.Move ? L10n.T("ui.move_to") : L10n.T("ui.copy_to")) + DropTarget(e.GetPosition(list)), false);
+            DragEventHandler previewDrop = (s, e) =>
+            {
+                string[] paths;
+                string target;
+                FileModel folder;
+                e.Effects = ResolveDrop(e, out paths, out target, out folder);
+                if (e.Effects == DragDropEffects.None) ClearDropPreview();
+                else
+                {
+                    HighlightDropFolder(folder);
+                    string message = (e.Effects == DragDropEffects.Move ? L10n.T("ui.move_to") : L10n.T("ui.copy_to")) + target;
+                    if (!showingDropPreview || status.Text != message) Notify(message, false);
+                    showingDropPreview = true;
+                }
                 e.Handled = true;
             };
-            list.PreviewDrop += async (s, e) => {
-                DragDropEffects effect = DropEffect(e.KeyStates, e.AllowedEffects);
-                if (effect == DragDropEffects.None || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
-                string[] paths = e.Data.GetData(DataFormats.FileDrop) as string[];
-                string target = DropTarget(e.GetPosition(list));
+            list.PreviewDragEnter += previewDrop;
+            list.PreviewDragOver += previewDrop;
+            list.PreviewDrop += async (s, e) =>
+            {
+                string[] paths;
+                string target;
+                FileModel folder;
+                DragDropEffects effect = ResolveDrop(e, out paths, out target, out folder);
+                e.Effects = effect;
                 e.Handled = true;
-                if (paths != null) await Transfer(paths, target, effect == DragDropEffects.Move);
+                if (effect == DragDropEffects.None) { ClearDropPreview(); return; }
+                showingDropPreview = false;
+                HighlightDropFolder(folder);
+                dropInProgress = true;
+                try { await Transfer(paths, target, effect == DragDropEffects.Move); }
+                finally
+                {
+                    dropInProgress = false;
+                    HighlightDropFolder(null);
+                }
             };
-            list.DragLeave += (s, e) => { if (!busy) status.Visibility = Visibility.Collapsed; };
+            list.DragLeave += (s, e) => { if (!busy) ClearDropPreview(); };
             Grid.SetRow(list, 1); body.Children.Add(list);
             Grid.SetRow(body, 1); layout.Children.Add(body);
             status.Foreground = Theme.Muted; status.FontSize = 11; status.TextWrapping = TextWrapping.NoWrap;
@@ -335,12 +371,17 @@ namespace WSLBox
             hoverTimer.Tick += (s, e) => HoverTick();
             IsVisibleChanged += async (s, e) => {
                 ++thumbnailGeneration;
-                if (!IsVisible) { hoverTimer.Stop(); SetHoverExpanded(false); }
+                if (!IsVisible) { hoverTimer.Stop(); SetHoverExpanded(false); ClearDropPreview(); }
                 if (IsVisible && initialized && !closing)
                 {
                     LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
                     await RefreshFolder(false);
                 }
+            };
+            SourceInitialized += (s, e) =>
+            {
+                var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+                if (source != null) source.AddHook(ResizeWindowMessage);
             };
             Closing += OnClosing;
             Closed += (s, e) => {
@@ -352,12 +393,49 @@ namespace WSLBox
             StateChanged += OnWindowStateChanged;
             refreshTimer.Interval = TimeSpan.FromSeconds(5);
             refreshTimer.Tick += async (s, e) => {
-                if (!busy && !opening && !listing && !dragging && !captionPending && !contextOpen && !Collapsed && WindowState != WindowState.Minimized)
+                if (!busy && !opening && !listing && !dragging && !captionPending && !IsContextMenuOpen && !Collapsed && WindowState != WindowState.Minimized)
                     await RefreshFolder(false);
             };
             noticeTimer.Interval = TimeSpan.FromSeconds(4);
             noticeTimer.Tick += (s, e) => { if (!busy && !opening) { status.Visibility = Visibility.Collapsed; noticeTimer.Stop(); } };
             SetView(settings.ViewMode, false); ApplyWindowLayout(null); UpdateTitle();
+        }
+
+        private IntPtr ResizeWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int hitTest = 0x0084, enterSizeMove = 0x0231, exitSizeMove = 0x0232;
+            if (message == enterSizeMove)
+            {
+                WindowEffects.TryGetBounds(this, out sizingStart);
+            }
+            else if (message == exitSizeMove)
+            {
+                Rect original = sizingStart;
+                sizingStart = Rect.Empty;
+                Rect current;
+                if (!original.IsEmpty && WindowEffects.TryGetBounds(this, out current)
+                    && current.Size != original.Size && WindowState == WindowState.Normal)
+                {
+                    settings.EdgeLayout = "";
+                    Persist();
+                }
+            }
+            else if (message == hitTest && !closing && ResizeMode != ResizeMode.NoResize
+                && WindowState == WindowState.Normal && !settings.Maximized)
+            {
+                Rect bounds;
+                if (!WindowEffects.TryGetBounds(this, out bounds)) return IntPtr.Zero;
+                long packed = lParam.ToInt64();
+                var point = new Point(unchecked((short)packed), unchecked((short)(packed >> 16)));
+                var dpi = VisualTreeHelper.GetDpi(this);
+                int edge = WindowEffects.ResizeHit(bounds, point, dpi);
+                if (edge != 0)
+                {
+                    handled = true;
+                    return new IntPtr(edge);
+                }
+            }
+            return IntPtr.Zero;
         }
 
         private void OnWindowStateChanged(object sender, EventArgs e)
@@ -424,6 +502,8 @@ namespace WSLBox
             menu.Items.Add(new Separator());
             var views = new MenuItem { Header = L10n.T("ui.view") };
             var sorts = new MenuItem { Header = L10n.T("ui.sort_by") };
+            var sizes = new MenuItem { Header = L10n.T("ui.icon_size") };
+            views.Items.Add(sizes);
             var choices = new List<MenuItem>();
             foreach (var choice in new[] {
                 Tuple.Create(ShellMenuAction.LargeIcons, L10n.T("ui.large_icons")), Tuple.Create(ShellMenuAction.MediumIcons, L10n.T("ui.medium_icons")),
@@ -435,9 +515,27 @@ namespace WSLBox
                 ShellMenuAction action = choice.Item1;
                 var item = new MenuItem { Header = choice.Item2, Tag = action, IsCheckable = true };
                 item.Click += (s, e) => ApplyViewSort(action);
-                if ((int)action < 20) views.Items.Add(item); else sorts.Items.Add(item);
+                if (action == ShellMenuAction.List) views.Items.Add(item);
+                else if ((int)action < 20) sizes.Items.Add(item);
+                else sorts.Items.Add(item);
                 choices.Add(item);
             }
+            var spacing = new MenuItem { Header = L10n.T("ui.icon_spacing") };
+            foreach (var choice in new[] {
+                Tuple.Create("compact", L10n.T("ui.icon_spacing_compact")),
+                Tuple.Create("standard", L10n.T("ui.icon_spacing_standard")),
+                Tuple.Create("roomy", L10n.T("ui.icon_spacing_roomy")) })
+            {
+                string preset = choice.Item1;
+                var option = new MenuItem { Header = choice.Item2, Tag = preset, IsCheckable = true };
+                option.Click += (sender, e) =>
+                {
+                    settings.IconSpacing = preset;
+                    SetView("icons");
+                };
+                spacing.Items.Add(option);
+            }
+            views.Items.Add(spacing);
             menu.Items.Add(views); menu.Items.Add(sorts);
             var thumbs = new MenuItem { Header = L10n.T("ui.show_thumbnails"), IsCheckable = true, IsChecked = settings.ShowThumbnails != false };
             thumbs.Click += async (s, e) => await ToggleThumbnails();
@@ -446,6 +544,9 @@ namespace WSLBox
             views.Items.Add(new Separator()); views.Items.Add(thumbs); views.Items.Add(hidden);
             menu.Opened += (s, e) => {
                 thumbs.IsChecked = settings.ShowThumbnails != false; hidden.IsChecked = settings.ShowHidden;
+                spacing.IsEnabled = settings.ViewMode == "icons";
+                foreach (MenuItem option in spacing.Items)
+                    option.IsChecked = (string)option.Tag == settings.IconSpacing;
                 foreach (MenuItem item in choices)
                 {
                     ShellMenuAction action = (ShellMenuAction)item.Tag;
@@ -490,31 +591,24 @@ namespace WSLBox
             menu.Items.Add(L10n.LanguageMenu(() => workspace == null ? L10n.Preference : workspace.LanguagePreference, value => {
                 if (workspace != null) workspace.SetLanguage(value);
             }));
-            AddMenu(menu, L10n.T("ui.help_and_shortcuts"), () => { Dialogs.Help(this); return Done(); });
-            AddMenu(menu, L10n.T("ui.about_wslbox"), () => { Dialogs.About(this); return Done(); });
             menu.Items.Add(new Separator());
             AddMenu(menu, L10n.T("ui.close_this_box"), () => { Close(); return Done(); });
-            AddMenu(menu, L10n.T("ui.exit_keep_layout"), () => { if (workspace != null) workspace.Exit(); else Close(); return Done(); });
+            menu.Items.Add(new Separator());
+            AddMenu(menu, L10n.T("ui.help_and_shortcuts"), () => { Dialogs.Help(this); return Done(); });
+            AddMenu(menu, L10n.T("ui.about"), () => { Dialogs.About(this); return Done(); });
+            AddMenu(menu, L10n.T("ui.exit"), () => { if (workspace != null) workspace.Exit(); else Close(); return Done(); });
 
-            var files = new ContextMenu();
+            var files = fileMenu;
             MenuItem open = AddMenu(files, L10n.T("ui.open_with_linux_default_app"), async () => await OpenSelected());
             MenuItem openWith = AddMenu(files, L10n.T("ui.linux_open_with"), async () => await OpenWithSelected());
             MenuItem rename = AddMenu(files, L10n.T("ui.rename_f2_0b5144"), async () => await RenameSelected());
             MenuItem trash = AddMenu(files, L10n.T("ui.move_to_linux_trash_delete_725a71"), async () => await DeleteSelected(false));
             AddMenu(files, L10n.T("ui.open_linux_trash"), async () => await OpenTrash());
             AddMenu(files, L10n.T("ui.new_folder_ctrl_shift_n_1157ef"), async () => await NewFolder());
-            AddMenu(files, L10n.T("ui.folder_settings"), async () => await Configure());
-            AddMenu(files, L10n.T("ui.bound_folder_alt_home_9134c1"), async () => await Home());
             files.Items.Add(new Separator());
-            MenuItem copy = AddMenu(files, L10n.T("ui.copy_ctrl_c"), () => { CopySelected(false); return Done(); });
-            MenuItem cut = AddMenu(files, L10n.T("ui.cut_ctrl_x"), () => { CopySelected(true); return Done(); });
+            MenuItem copy = AddMenu(files, L10n.T("ui.copy_ctrl_c"), () => CopySelected(false));
+            MenuItem cut = AddMenu(files, L10n.T("ui.cut_ctrl_x"), () => CopySelected(true));
             MenuItem paste = AddMenu(files, L10n.T("ui.paste_ctrl_v"), async () => await Paste());
-            files.Items.Add(new Separator());
-            AddMenu(files, L10n.T("ui.new_box"), () => { NewBox(); return Done(); });
-            AddMenu(files, L10n.T("ui.help"), () => { Dialogs.Help(this); return Done(); });
-            files.Items.Add(new Separator());
-            AddMenu(files, L10n.T("ui.close_this_box"), () => { Close(); return Done(); });
-            AddMenu(files, L10n.T("ui.exit_keep_layout"), () => { if (workspace != null) workspace.Exit(); else Close(); return Done(); });
             files.Opened += (s, e) => {
                 open.IsEnabled = copy.IsEnabled = cut.IsEnabled = initialized && !busy && list.SelectedItems.Count > 0;
                 openWith.IsEnabled = initialized && !busy && list.SelectedItems.Count == 1;
@@ -523,8 +617,6 @@ namespace WSLBox
                 try { paste.IsEnabled = initialized && !busy && Clipboard.ContainsFileDropList(); }
                 catch { paste.IsEnabled = false; }
             };
-            files.Opened += (s, e) => contextOpen = true;
-            files.Closed += (s, e) => contextOpen = false;
             list.PreviewMouseRightButtonDown += (s, e) => {
                 var item = Ancestor<ListBoxItem>(e.OriginalSource as DependencyObject);
                 FileModel model = item == null ? null : item.DataContext as FileModel;
@@ -533,7 +625,7 @@ namespace WSLBox
             };
             list.PreviewMouseRightButtonUp += async (s, e) => {
                 e.Handled = true;
-                await NativeContextMenu(PointToScreen(e.GetPosition(this)), files);
+                await NativeContextMenu(PointToScreen(e.GetPosition(this)));
             };
         }
         private void ShowBoxMenu(FrameworkElement target, Point? point = null)
@@ -544,9 +636,9 @@ namespace WSLBox
             menu.VerticalOffset = point.HasValue ? point.Value.Y : 0;
             menu.IsOpen = true;
         }
-        private async Task NativeContextMenu(Point screen, ContextMenu fallback = null)
+        private async Task NativeContextMenu(Point screen)
         {
-            if (busy || contextOpen || !initialized) return;
+            if (closing || IsContextMenuOpen) return;
             FileModel[] selected = list.SelectedItems.Cast<FileModel>().ToArray();
             if (selected.Length == 0)
             {
@@ -555,6 +647,7 @@ namespace WSLBox
                 ShowBoxMenu(list, list.PointFromScreen(screen));
                 return;
             }
+            if (busy || !initialized) return;
             string[] paths = selected.Select(m => Paths.Unc(settings.Distro, m.Path)).ToArray();
             ShellMenuAction action = ShellMenuAction.None;
             bool failed = false;
@@ -578,7 +671,12 @@ namespace WSLBox
             finally { contextOpen = false; }
             if (failed)
             {
-                if (fallback != null) { fallback.PlacementTarget = list; fallback.IsOpen = true; }
+                fileMenu.PlacementTarget = list;
+                fileMenu.Placement = PlacementMode.RelativePoint;
+                Point point = list.PointFromScreen(screen);
+                fileMenu.HorizontalOffset = point.X;
+                fileMenu.VerticalOffset = point.Y;
+                fileMenu.IsOpen = true;
                 return;
             }
             if (action == ShellMenuAction.OpenWithLinux) await OpenWithSelected();
@@ -603,7 +701,7 @@ namespace WSLBox
         private MenuItem AddMenu(ContextMenu target, string label, Func<Task> action)
         {
             var item = new MenuItem { Header = MenuText.Clean(label) };
-            item.Click += async (s, e) => { try { await action(); } catch (Exception ex) { Report(ex); } };
+            item.Click += async (s, e) => { try { target.IsOpen = false; await action(); } catch (Exception ex) { Report(ex); } };
             target.Items.Add(item); return item;
         }
         private void NewBox() { if (workspace != null) workspace.CreateBox(this); }
@@ -822,7 +920,7 @@ namespace WSLBox
         }
         private bool HoverBlocked(bool expanding)
         {
-            return dragging || captionPending || contextOpen || menu.IsOpen || renameEditor != null
+            return dragging || captionPending || !sizingStart.IsEmpty || IsContextMenuOpen || menu.IsOpen || renameEditor != null
                 || OwnedWindows.Cast<Window>().Any(window => window.IsVisible)
                 || (!expanding && (busy || opening));
         }
@@ -871,9 +969,23 @@ namespace WSLBox
                 : "<ItemsPanelTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><VirtualizingStackPanel/></ItemsPanelTemplate>");
             VirtualizingStackPanel.SetIsVirtualizing(list, true);
             VirtualizingStackPanel.SetVirtualizationMode(list, VirtualizationMode.Recycling);
-            int iconSize = settings.IconSize, itemWidth = Math.Max(74, iconSize + 44), itemHeight = iconSize + 52;
+            int iconSize = settings.IconSize;
+            int itemWidth = Math.Max(74, iconSize + 44);
+            int itemHeight = iconSize + 52;
+            string iconMargin = "0,5,0,6";
+            if (settings.IconSpacing == "compact")
+            {
+                itemWidth -= 12;
+                itemHeight -= 9;
+                iconMargin = "0,3,0,3";
+            }
+            else if (settings.IconSpacing == "roomy")
+            {
+                itemWidth += 16;
+                itemHeight += 12;
+            }
             list.ItemTemplate = (DataTemplate)XamlReader.Parse(icons
-                ? "<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><StackPanel Width='" + itemWidth + "' Height='" + itemHeight + "' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='" + iconSize + "' Height='" + iconSize + "' Margin='0,5,0,6'/><TextBlock Name='FileName' Text='{Binding Label}' TextAlignment='Center' TextWrapping='Wrap' TextTrimming='CharacterEllipsis' MaxHeight='36' FontSize='12'/></StackPanel></DataTemplate>"
+                ? "<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><StackPanel Width='" + itemWidth + "' Height='" + itemHeight + "' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='" + iconSize + "' Height='" + iconSize + "' Margin='" + iconMargin + "'/><TextBlock Name='FileName' Text='{Binding Label}' TextAlignment='Center' TextWrapping='Wrap' TextTrimming='CharacterEllipsis' MaxHeight='36' FontSize='12'/></StackPanel></DataTemplate>"
                 : @"<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><DockPanel Height='29' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='20' Height='20' Margin='3,0,9,0' DockPanel.Dock='Left'/><TextBlock Name='FileName' Text='{Binding Label}' VerticalAlignment='Center' TextTrimming='CharacterEllipsis' Margin='0,0,10,0'/></DockPanel></DataTemplate>");
             if (save) Persist();
         }
@@ -1050,7 +1162,7 @@ namespace WSLBox
             {
                 Reply reply = await wsl.Run(distro, command, requested, showHidden);
                 if (command != ListCommand || showHidden != settings.ShowHidden) return;
-                if (closing || busy || dragging || contextOpen || renameEditor != null || (!explicitRequest && !IsVisible)
+                if (closing || busy || dragging || IsContextMenuOpen || renameEditor != null || (!explicitRequest && !IsVisible)
                     || requested != currentFolder || distro != settings.Distro) return;
                 ShowEntries(reply); lastError = "";
                 if (explicitRequest) Notify(models.Count + L10n.T("ui.items"));
@@ -1149,8 +1261,8 @@ namespace WSLBox
             else if (ctrl && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && key == Key.N) await NewFolder();
             else if (ctrl && key == Key.H) await ToggleHidden();
             else if (ctrl && key == Key.A) list.SelectAll();
-            else if (ctrl && key == Key.C) CopySelected(false);
-            else if (ctrl && key == Key.X) CopySelected(true);
+            else if (ctrl && key == Key.C) { e.Handled = true; await CopySelected(false); }
+            else if (ctrl && key == Key.X) { e.Handled = true; await CopySelected(true); }
             else if (ctrl && key == Key.V) await Paste();
             else if (ctrl && key == Key.N) NewBox();
             else if (ctrl && key == Key.L) await Configure();
@@ -1173,7 +1285,7 @@ namespace WSLBox
         }
         private async Task OpenWithSelected()
         {
-            if (busy || opening || !initialized || contextOpen || list.SelectedItems.Count != 1) return;
+            if (busy || opening || !initialized || IsContextMenuOpen || list.SelectedItems.Count != 1) return;
             FileModel model = (FileModel)list.SelectedItem;
             opening = true;
             try
@@ -1190,7 +1302,7 @@ namespace WSLBox
         }
         private async Task DeleteSelected(bool permanent)
         {
-            if (busy || opening || !initialized || contextOpen) return;
+            if (busy || opening || !initialized || IsContextMenuOpen) return;
             FileModel[] selected = list.SelectedItems.Cast<FileModel>().ToArray();
             if (selected.Length == 0) return;
             string action = permanent ? L10n.T("ui.permanently_delete") : L10n.T("ui.move_to_linux_trash");
@@ -1221,7 +1333,7 @@ namespace WSLBox
         }
         private Task RenameSelected()
         {
-            if (busy || opening || !initialized || contextOpen || list.SelectedItems.Count != 1 || renameEditor != null) return Done();
+            if (busy || opening || !initialized || IsContextMenuOpen || list.SelectedItems.Count != 1 || renameEditor != null) return Done();
             FileModel model = (FileModel)list.SelectedItem;
             list.ScrollIntoView(model); list.UpdateLayout();
             var container = list.ItemContainerGenerator.ContainerFromItem(model) as ListBoxItem;
@@ -1268,7 +1380,7 @@ namespace WSLBox
         }
         private async Task NewFolder()
         {
-            if (busy || opening || !initialized || contextOpen) return;
+            if (busy || opening || !initialized || IsContextMenuOpen) return;
             string name = Dialogs.FileName(this, L10n.T("ui.new_folder"), L10n.T("ui.new_folder"), true);
             if (name != null) await NamedFileAction("mkdir", currentFolder, name);
         }
@@ -1313,11 +1425,45 @@ namespace WSLBox
             DragDropEffects effect = shift ? DragDropEffects.Move : DragDropEffects.Copy;
             return (allowed & effect) != 0 ? effect : DragDropEffects.None;
         }
-        private string DropTarget(Point position)
+        private DragDropEffects ResolveDrop(DragEventArgs e, out string[] paths, out string target, out FileModel folder)
+        {
+            paths = null;
+            target = currentFolder;
+            folder = null;
+            if (busy || dropInProgress || closing || !initialized) return DragDropEffects.None;
+            DragDropEffects effect = DropEffect(e.KeyStates, e.AllowedEffects);
+            if (effect == DragDropEffects.None) return effect;
+            try
+            {
+                if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return DragDropEffects.None;
+                paths = e.Data.GetData(DataFormats.FileDrop) as string[];
+            }
+            catch (System.Runtime.InteropServices.ExternalException) { return DragDropEffects.None; }
+
+            target = DropTarget(e.GetPosition(list), out folder);
+            return Paths.CanDrop(paths, Paths.Unc(settings.Distro, target), effect == DragDropEffects.Move)
+                ? effect : DragDropEffects.None;
+        }
+        private string DropTarget(Point position, out FileModel folder)
         {
             var item = Ancestor<ListBoxItem>(list.InputHitTest(position) as DependencyObject);
             FileModel model = item == null ? null : item.DataContext as FileModel;
-            return model != null && model.Entry.IsDirectory && !model.Entry.IsLink ? model.Path : currentFolder;
+            folder = model != null && model.Entry.IsDirectory && !model.Entry.IsLink ? model : null;
+            return folder == null ? currentFolder : folder.Path;
+        }
+        private void HighlightDropFolder(FileModel folder)
+        {
+            if (ReferenceEquals(highlightedDropFolder, folder)) return;
+            if (highlightedDropFolder != null) highlightedDropFolder.IsDropTarget = false;
+            highlightedDropFolder = folder;
+            if (folder != null) folder.IsDropTarget = true;
+        }
+        private void ClearDropPreview()
+        {
+            if (dropInProgress) return;
+            HighlightDropFolder(null);
+            if (showingDropPreview) status.Visibility = Visibility.Collapsed;
+            showingDropPreview = false;
         }
         private async Task<bool> Transfer(string[] sources, string target, bool move)
         {
@@ -1330,16 +1476,43 @@ namespace WSLBox
             await RefreshFolder(false);
             Notify(complete ? L10n.T("ui.file_operation_complete") : L10n.T("ui.some_operations_did_not_complete_check_the_source_and_destinatio")); return complete;
         }
-        private void CopySelected(bool move)
+        private async Task CopySelected(bool move)
         {
             if (busy || !initialized) return;
             try
             {
-                string[] paths = SelectedPaths(); if (paths.Length == 0) return;
-                DataObject data = FileData(paths, move); data.SetData("WSLBox.ClipboardId", Guid.NewGuid().ToString());
-                Clipboard.SetDataObject(data, true); Notify((move ? L10n.T("ui.cut") : L10n.T("ui.copied")) + paths.Length + L10n.T("ui.items_95de7c"));
+                string[] paths = SelectedPaths();
+                if (paths.Length == 0) return;
+                DataObject data = FileData(paths, move);
+                data.SetData("WSLBox.ClipboardId", Guid.NewGuid().ToString());
+                await WriteClipboard(() => Clipboard.SetDataObject(data, true),
+                    (move ? L10n.T("ui.cut") : L10n.T("ui.copied")) + paths.Length + L10n.T("ui.items_95de7c"));
             }
             catch (Exception ex) { Report(ex); }
+        }
+        private async Task WriteClipboard(Action write, string success)
+        {
+            int version = ++clipboardWriteVersion;
+            const int attempts = 4;
+            for (int attempt = 1; attempt <= attempts && version == clipboardWriteVersion && !closing; attempt++)
+            {
+                try
+                {
+                    write();
+                    Notify(success);
+                    return;
+                }
+                catch (System.Runtime.InteropServices.ExternalException ex)
+                {
+                    if (ex.HResult != ClipboardCannotOpen) throw;
+                    if (attempt == attempts)
+                    {
+                        Notify(L10n.T("ui.clipboard_busy"));
+                        return;
+                    }
+                }
+                await Task.Delay(60);
+            }
         }
         private async Task Paste()
         {
