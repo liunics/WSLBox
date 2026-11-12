@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
 
@@ -12,6 +13,82 @@ namespace WSLBox
     {
         public static readonly Brush Text = new SolidColorBrush(Color.FromRgb(239, 243, 248));
         public static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(171, 184, 201));
+        public static Brush PanelMuted { get { return SystemColors.GrayTextBrush; } }
+        public static readonly Brush PanelError = Brushes.Firebrick;
+
+        public static void ApplyPanelTheme(Window window)
+        {
+            window.SetResourceReference(Window.BackgroundProperty, SystemColors.WindowBrushKey);
+            window.SetResourceReference(Window.ForegroundProperty, SystemColors.WindowTextBrushKey);
+            window.SetResourceReference(Window.FontFamilyProperty, SystemFonts.MessageFontFamilyKey);
+            window.SetResourceReference(Window.FontSizeProperty, SystemFonts.MessageFontSizeKey);
+        }
+
+        public static ContextMenu CreateMenu()
+        {
+            var menu = new ContextMenu();
+            menu.SetResourceReference(ContextMenu.BackgroundProperty, SystemColors.MenuBrushKey);
+            menu.SetResourceReference(ContextMenu.ForegroundProperty, SystemColors.MenuTextBrushKey);
+            menu.SetResourceReference(ContextMenu.FontFamilyProperty, SystemFonts.MenuFontFamilyKey);
+            menu.SetResourceReference(ContextMenu.FontSizeProperty, SystemFonts.MenuFontSizeKey);
+            return menu;
+        }
+
+        // Only the interactive row needs templates beyond WPF's system styles.
+        public static ResourceDictionary MenuControlResources()
+        {
+            return (ResourceDictionary)XamlReader.Parse(@"<ResourceDictionary xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'>
+<Style x:Key='PanelStepper' TargetType='RepeatButton'>
+ <Setter Property='Foreground' Value='{DynamicResource {x:Static SystemColors.MenuTextBrushKey}}'/>
+ <Setter Property='FontSize' Value='11'/>
+ <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='RepeatButton'>
+  <Border x:Name='plate' Background='Transparent' BorderBrush='Transparent' BorderThickness='1' CornerRadius='4'>
+   <ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/>
+  </Border>
+  <ControlTemplate.Triggers>
+   <Trigger Property='IsMouseOver' Value='True'>
+    <Setter TargetName='plate' Property='Background' Value='{DynamicResource {x:Static SystemColors.HighlightBrushKey}}'/>
+    <Setter Property='Foreground' Value='{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}'/>
+   </Trigger>
+   <Trigger Property='IsPressed' Value='True'><Setter TargetName='plate' Property='Opacity' Value='0.72'/></Trigger>
+   <Trigger Property='IsKeyboardFocused' Value='True'><Setter TargetName='plate' Property='BorderBrush' Value='{DynamicResource {x:Static SystemColors.HighlightBrushKey}}'/></Trigger>
+  </ControlTemplate.Triggers>
+ </ControlTemplate></Setter.Value></Setter>
+</Style>
+<Style x:Key='PanelMenuControl' TargetType='MenuItem'>
+ <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='MenuItem'>
+  <Border Background='{DynamicResource {x:Static SystemColors.MenuBrushKey}}' Padding='12,5'>
+   <ContentPresenter ContentSource='Header'/>
+  </Border>
+ </ControlTemplate></Setter.Value></Setter>
+</Style>
+<Style x:Key='PanelSlider' TargetType='Slider'>
+ <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Slider'>
+  <Grid Height='22' Background='Transparent'>
+   <Border Height='4' Margin='7,0' Background='{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}' CornerRadius='2' VerticalAlignment='Center'/>
+   <Track x:Name='PART_Track' Minimum='{TemplateBinding Minimum}' Maximum='{TemplateBinding Maximum}'
+          Value='{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}'>
+    <Track.DecreaseRepeatButton><RepeatButton Command='{x:Static Slider.DecreaseLarge}' Focusable='False'>
+     <RepeatButton.Template><ControlTemplate TargetType='RepeatButton'><Border Background='Transparent'/></ControlTemplate></RepeatButton.Template>
+    </RepeatButton></Track.DecreaseRepeatButton>
+    <Track.Thumb><Thumb Width='14' Height='14' VerticalAlignment='Center'>
+     <Thumb.Template><ControlTemplate TargetType='Thumb'>
+      <Border x:Name='knob' Background='{DynamicResource {x:Static SystemColors.HighlightBrushKey}}' CornerRadius='7'/>
+      <ControlTemplate.Triggers>
+       <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='knob' Property='Background' Value='{DynamicResource {x:Static SystemColors.HotTrackBrushKey}}'/></Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate></Thumb.Template>
+    </Thumb></Track.Thumb>
+    <Track.IncreaseRepeatButton><RepeatButton Command='{x:Static Slider.IncreaseLarge}' Focusable='False'>
+     <RepeatButton.Template><ControlTemplate TargetType='RepeatButton'><Border Background='Transparent'/></ControlTemplate></RepeatButton.Template>
+    </RepeatButton></Track.IncreaseRepeatButton>
+   </Track>
+  </Grid>
+ </ControlTemplate></Setter.Value></Setter>
+</Style>
+</ResourceDictionary>");
+        }
+
         public static ResourceDictionary Resources()
         {
             return (ResourceDictionary)XamlReader.Parse(@"<ResourceDictionary xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'>

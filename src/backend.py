@@ -223,7 +223,7 @@ class LinuxIcons:
         except (ImportError, ValueError):
             pass
 
-    def describe(self, path):
+    def describe(self, path, original_name=None):
         if self.gio is None:
             return {}
         try:
@@ -232,7 +232,8 @@ class LinuxIcons:
             icon = info.get_icon()
             name = info.get_display_name()
             link = os.path.islink(path)
-            if path.endswith(".desktop"):
+            is_launcher = (original_name or path).endswith(".desktop")
+            if is_launcher:
                 entry = desktop_entry(path, self.glib)
                 name = entry.get("Name")
                 if entry["Icon"]:
@@ -250,7 +251,7 @@ class LinuxIcons:
             mime = info.get_content_type() or ""
             key, pending = None, False
             cache = self.thumbnail_cache
-            if cache is not None and not os.path.isdir(path) and not path.endswith(".desktop"):
+            if cache is not None and not os.path.isdir(path) and not is_launcher:
                 pix = cache.cached(path)
                 if pix is not None:
                     key = self.encode_pixbuf(pix, "thumb", link)
@@ -559,6 +560,187 @@ def file_action(command, value):
     return {"Ok": True, "Path": target}
 
 
+def home_trash_root():
+    data = os.environ.get("XDG_DATA_HOME", "")
+    if not os.path.isabs(data):
+        data = os.path.expanduser("~/.local/share")
+    return os.path.join(data, "Trash")
+
+
+def home_trash_original(name):
+    from urllib.parse import unquote
+    root = home_trash_root()
+    with open(os.path.join(root, "info", name + ".trashinfo"), encoding="utf-8") as info:
+        if info.readline().strip() != "[Trash Info]":
+            return ""
+        for line in info:
+            if line.startswith("Path="):
+                original = unquote(line[5:].rstrip("\r\n"))
+                if not original or "\0" in original or ".." in original.split("/"):
+                    return ""
+                return os.path.normpath(os.path.join(os.path.dirname(root), original))
+    return ""
+
+
+def trash_location(token):
+    from gi.repository import Gio
+    if not isinstance(token, str):
+        raise ValueError(tr("backend.invalid_file_operation_request"))
+    kind, separator, path = token.partition(":")
+    parts = path.split("/")
+    if not separator or kind not in ("gio", "home") or any(
+            not part or part in (".", "..") or "\0" in part for part in parts):
+        raise ValueError(tr("backend.invalid_file_operation_request"))
+    if kind == "gio":
+        location = Gio.File.new_for_uri("trash:///")
+    else:
+        root = home_trash_root()
+        files = os.path.join(root, "files")
+        if os.path.islink(root) or os.path.islink(files) or os.path.islink(os.path.join(root, "info")):
+            raise ValueError(tr("backend.invalid_file_operation_request"))
+        location = Gio.File.new_for_path(files)
+    flags = Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS
+    for index, part in enumerate(parts):
+        location = location.get_child(part)
+        if index < len(parts) - 1 and location.query_file_type(flags, None) != Gio.FileType.DIRECTORY:
+            raise ValueError(tr("backend.invalid_file_operation_request"))
+    return kind, parts, location
+
+
+def trash_local_path(kind, parts, item):
+    from gi.repository import Gio
+    if kind == "home":
+        return item.get_path()
+    _, _, top = trash_location("gio:" + parts[0])
+    target = top.query_info("standard::target-uri", Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
+    uri = target.get_attribute_string("standard::target-uri")
+    base = Gio.File.new_for_uri(uri).get_path() if uri else None
+    return os.path.join(base, *parts[1:]) if base else None
+
+
+def list_trash(directory=None):
+    from gi.repository import Gio, GLib
+    attributes = "standard::name,standard::display-name,standard::type,standard::size,standard::icon,standard::target-uri,trash::orig-path"
+    flags = Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS
+    kind = "gio"
+    local_root = None
+    if directory:
+        kind, parts, root = trash_location(directory)
+        local_root = trash_local_path(kind, parts, root)
+        if root.query_file_type(flags, None) != Gio.FileType.DIRECTORY:
+            raise ValueError(tr("backend.invalid_file_operation_request"))
+    else:
+        root = Gio.File.new_for_uri("trash:///")
+    try:
+        enumerator = root.enumerate_children(attributes, flags, None)
+    except GLib.Error as exc:
+        if directory or not exc.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_SUPPORTED):
+            raise
+        kind = "home"
+        root = Gio.File.new_for_path(os.path.join(home_trash_root(), "files"))
+        try:
+            enumerator = root.enumerate_children(attributes, flags, None)
+        except GLib.Error as missing:
+            if missing.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                return {"Entries": []}
+            raise
+    entries = []
+    icons = LinuxIcons(thumbnails=False)
+    try:
+        while True:
+            info = enumerator.next_file(None)
+            if info is None:
+                break
+            name = info.get_name()
+            label = info.get_display_name() or name
+            original = info.get_attribute_byte_string("trash::orig-path")
+            if isinstance(original, bytes):
+                original = os.fsdecode(original)
+            if kind == "home" and not directory:
+                try:
+                    original = home_trash_original(name)
+                except (OSError, UnicodeError):
+                    pass
+                if original:
+                    label = os.path.basename(original) or label
+            child = root.get_child(name)
+            local = child.get_path()
+            if local_root:
+                local = os.path.join(local_root, name)
+            elif not local:
+                uri = info.get_attribute_string("standard::target-uri")
+                local = Gio.File.new_for_uri(uri).get_path() if uri else None
+            details = icons.describe(local, os.path.basename(original) if original else name) if local else {}
+            token = (directory + "/" if directory else kind + ":") + name
+            entries.append({"Name": name, "DisplayName": label, "TrashId": token,
+                            "IconKey": details.get("IconKey") or icons.render(info.get_icon()),
+                            "Path": original or root.get_child(name).get_uri(),
+                            "IsDirectory": info.get_file_type() == Gio.FileType.DIRECTORY,
+                            "Size": info.get_size()})
+    finally:
+        enumerator.close(None)
+    return {"Entries": entries, "Icons": list(icons.images.values())}
+
+
+def open_trashed_file(token):
+    from gi.repository import Gio, GLib
+    kind, parts, item = trash_location(token)
+    flags = Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS
+    if item.query_file_type(flags, None) == Gio.FileType.DIRECTORY:
+        raise ValueError(tr("backend.invalid_file_operation_request"))
+    local = trash_local_path(kind, parts, item)
+    if local:
+        return open_linux(local)
+    return launch_request(item.query_default_handler(None), item.get_uri(), Gio, GLib)
+
+
+def change_trash(command, payload):
+    from gi.repository import Gio
+    import shutil
+    import stat
+    request = json.loads(payload)
+    tokens = request.get("Paths") if isinstance(request, dict) else None
+    if not isinstance(tokens, list) or not tokens or len(tokens) > 32:
+        raise ValueError(tr("backend.each_file_operation_batch_needs_1_to_32_paths"))
+    items = [trash_location(token) for token in tokens]
+    if any(len(parts) != 1 for _, parts, _ in items):
+        raise ValueError(tr("backend.invalid_file_operation_request"))
+    completed, failures = 0, []
+    for kind, parts, item in items:
+        try:
+            if command == "restore-trash":
+                original = (home_trash_original(parts[0]) if kind == "home"
+                    else item.query_info("trash::orig-path", Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
+                        .get_attribute_byte_string("trash::orig-path"))
+                if isinstance(original, bytes):
+                    original = os.fsdecode(original)
+                if not original or not os.path.isabs(original) or original == "/":
+                    raise ValueError(tr("backend.trash_original_missing"))
+                # Keep GIO's no-overwrite behavior for an occupied destination.
+                flags = Gio.FileCopyFlags.NOFOLLOW_SYMLINKS
+                if kind == "home":
+                    flags |= Gio.FileCopyFlags.NO_FALLBACK_FOR_MOVE
+                if not item.move(Gio.File.new_for_path(original), flags, None, None, None):
+                    raise RuntimeError(tr("backend.trash_change_failed"))
+            elif kind == "home":
+                path = item.get_path()
+                if stat.S_ISDIR(os.lstat(path).st_mode):
+                    shutil.rmtree(path)
+                else:
+                    os.unlink(path)
+            elif not item.delete(None):
+                raise RuntimeError(tr("backend.trash_change_failed"))
+            completed += 1
+            if kind == "home":
+                try:
+                    os.unlink(os.path.join(home_trash_root(), "info", parts[0] + ".trashinfo"))
+                except FileNotFoundError:
+                    pass
+        except Exception as exc:
+            failures.append({"Path": parts[0], "Error": str(exc)})
+    return {"Ok": not failures, "Completed": completed, "Failures": failures}
+
+
 def open_trash():
     ensure_wslg_session()
     from gi.repository import Gio, GLib
@@ -608,6 +790,21 @@ def main(argv, show_hidden=False):
         return file_action(command, argv[1])
     if command == "open-trash":
         return open_trash()
+    if command == "list-trash":
+        return list_trash(argv[1] if len(argv) == 2 else None)
+    if command == "users":
+        import pwd
+        accounts = pwd.getpwall()
+        names = {account.pw_name for account in accounts
+                 if account.pw_uid >= 1000 and account.pw_uid != 65534
+                 and os.path.basename(account.pw_shell) not in ("nologin", "false")}
+        names.add(pwd.getpwuid(os.getuid()).pw_name)
+        return {"Users": sorted(names)}
+    if command == "trash-folder":
+        path = os.path.join(home_trash_root(), "files")
+        if not os.path.isdir(path):
+            raise ValueError(tr("backend.trash_folder_missing"))
+        return {"Path": path}
     if command == "info":
         return {"Distro": os.environ.get("WSL_DISTRO_NAME", ""),
                 "Home": os.path.expanduser("~")}
@@ -648,8 +845,16 @@ def serve_open():
             if not isinstance(request, dict):
                 raise ValueError("Invalid open request")
             command = request.get("Command", "open")
-            if command == "open-trash":
-                response = open_trash()
+            if command in ("open-trash", "list-trash", "open-trashed-file", "restore-trash", "purge-trash"):
+                path = request.get("Path")
+                if command == "open-trash":
+                    response = open_trash()
+                elif command == "list-trash":
+                    response = list_trash(path)
+                elif command == "open-trashed-file":
+                    response = open_trashed_file(path)
+                else:
+                    response = change_trash(command, path)
                 print(json.dumps(response, ensure_ascii=False), flush=True)
                 continue
             if command != "open" or not isinstance(request.get("Path"), str):
@@ -671,7 +876,7 @@ def serve_open():
 def serve_metadata(thumbnails=False):
     """Warm file operations; never activate GUI apps on the icon environment."""
     from gi.repository import GLib
-    allowed = {"thumbnails"} if thumbnails else {"info", "folder-info", "list", "list-icons", "applications", "rename", "mkdir", "trash"}
+    allowed = {"thumbnails"} if thumbnails else {"info", "folder-info", "list", "list-icons", "applications", "rename", "mkdir", "trash", "users", "trash-folder"}
     print(json.dumps({"Ready": True, "Pid": os.getpid()}), flush=True)
     for line in sys.stdin:
         line = line.lstrip("\ufeff")
@@ -686,7 +891,7 @@ def serve_metadata(thumbnails=False):
                 context.iteration(False)
             command = request["Command"]
             value = request.get("Path")
-            if command != "info" and not isinstance(value, str):
+            if command not in ("info", "users", "trash-folder") and not isinstance(value, str):
                 raise ValueError("Missing request path")
             show_hidden = request.get("ShowHidden", False)
             if not isinstance(show_hidden, bool):

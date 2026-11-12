@@ -19,14 +19,20 @@ namespace WSLBox
     internal sealed class OpenWorker : IDisposable
     {
         private readonly object gate = new object(), lifetime = new object();
-        private readonly string distro, script, mode;
+        private readonly string distro, script, mode, linuxUser;
         private Process process;
         private Task<string> errors;
         private volatile bool disposed;
         private long lastActivity;
         private int linuxPid;
         public int BackendPid { get { lock (lifetime) return linuxPid; } }
-        public OpenWorker(string distro, string script, string mode = "serve-open") { this.distro = distro; this.script = script; this.mode = mode; }
+        public OpenWorker(string distro, string script, string mode = "serve-open", string linuxUser = null)
+        {
+            this.distro = distro;
+            this.script = script;
+            this.mode = mode;
+            this.linuxUser = linuxUser;
+        }
         public void Warmup() { lock (gate) EnsureStarted(); }
         private Reply ReadReply(Process current, Task<string> stderr, int timeout)
         {
@@ -50,9 +56,7 @@ namespace WSLBox
                 if (process != null && !process.HasExited) return;
             }
             Stop();
-            string distribution = distro ?? "";
-            if (distribution.IndexOfAny(new[] { ' ', '\t', '"' }) >= 0) distribution = Paths.Quote(distribution);
-            string arguments = String.IsNullOrWhiteSpace(distro) ? "" : "--distribution " + distribution + " ";
+            string arguments = WslClient.LaunchOptions(distro, linuxUser);
             arguments += "--exec /usr/bin/python3 -u -X utf8 -c " + Paths.Quote(WslClient.Bootstrap) + " " + mode;
             Process started = Process.Start(new ProcessStartInfo("wsl.exe", arguments) {
                 UseShellExecute = false, CreateNoWindow = true,
@@ -96,7 +100,7 @@ namespace WSLBox
                         byte[] request = Encoding.UTF8.GetBytes(Json.Write(new OpenRequest { Command = command, Path = path, Application = application, SetDefault = setDefault, ShowHidden = showHidden }) + "\n");
                         current.StandardInput.BaseStream.Write(request, 0, request.Length);
                         current.StandardInput.BaseStream.Flush();
-                        return ReadReply(current, stderr, command == "trash" ? 120000 : mode == "serve-open" ? 16000 : 20000);
+                        return ReadReply(current, stderr, (command == "trash" || command == "restore-trash" || command == "purge-trash") ? 120000 : mode == "serve-open" ? 16000 : 20000);
                     }
                     catch
                     {

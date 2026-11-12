@@ -8,25 +8,31 @@ namespace WSLBox
     internal sealed class ConfigForm : Window
     {
         private readonly ComboBox distro = new ComboBox { IsEditable = false, MinWidth = 0 };
+        private readonly ComboBox linuxUser = new ComboBox { IsEditable = true, MinWidth = 0 };
+        private readonly string defaultUser = L10n.T("ui.default_linux_user");
+        private static readonly string backendPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend.py");
+        private readonly CheckBox showTrashTab = new CheckBox();
         private readonly TextBox folder = new TextBox(), title = new TextBox();
-        private readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray };
-        private readonly TextBlock titleHint = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray };
+        private readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Theme.PanelMuted };
+        private readonly TextBlock titleHint = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Theme.PanelMuted };
         private readonly Button browse = new Button { Content = L10n.T("ui.browse") }, home = new Button { Content = L10n.T("ui.home") };
         private readonly Button reload = new Button { Content = L10n.T("ui.refresh") }, ok = new Button { Content = L10n.T("ui.ok"), IsDefault = true };
-        private readonly WslClient client = new WslClient(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend.py"));
+        private readonly WslClient client = new WslClient(backendPath);
         private bool loading, closed;
         private int homeGeneration;
         public string Distro { get { return distro.SelectedItem as string ?? ""; } }
+        public string LinuxUser { get { return linuxUser.Text == defaultUser ? "" : linuxUser.Text.Trim(); } }
         public string Folder { get { return folder.Text.Trim(); } }
         public string BoxTitle { get { return title.Text.Trim(); } }
-        public ConfigForm(string distribution, string path, string boxTitle = "")
+        public bool ShowTrashTab { get { return showTrashTab.IsChecked == true; } }
+        public ConfigForm(string distribution, string path, string boxTitle = "", bool showTrash = true, string user = "")
         {
             Title = L10n.T("ui.folder_settings"); Width = 600; MinWidth = 480;
             Icon = Branding.Image; SizeToContent = SizeToContent.Height;
             ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            ShowInTaskbar = false; FontFamily = new FontFamily("Microsoft YaHei UI"); FontSize = 13;
-            Background = Brushes.White; Foreground = Brushes.Black;
-            var layout = new StackPanel { Margin = new Thickness(22), Background = Brushes.White };
+            ShowInTaskbar = false;
+            Theme.ApplyPanelTheme(this);
+            var layout = new StackPanel { Margin = new Thickness(22) };
             layout.Children.Add(new TextBlock { Text = L10n.T("ui.choose_a_distribution_and_a_folder_to_display"), FontSize = 15,
                 Margin = new Thickness(0, 0, 0, 16) });
             var fields = new Grid();
@@ -36,21 +42,28 @@ namespace WSLBox
             reload.Margin = new Thickness(8, 0, 0, 0); reload.Padding = new Thickness(12, 5, 12, 5);
             DockPanel.SetDock(reload, Dock.Right); distributions.Children.Add(reload); distributions.Children.Add(distro);
             AddField(fields, L10n.T("ui.distribution"), distributions, 0);
+            AddField(fields, L10n.T("ui.linux_user"), linuxUser, 1);
+            linuxUser.ItemsSource = new[] { defaultUser };
+            linuxUser.Text = String.IsNullOrEmpty(user) ? defaultUser : user;
             var folders = new DockPanel { LastChildFill = true };
             foreach (Button button in new[] { home, browse })
             {
                 button.Padding = new Thickness(10, 5, 10, 5); button.Margin = new Thickness(7, 0, 0, 0);
                 DockPanel.SetDock(button, Dock.Right); folders.Children.Add(button);
             }
-            folders.Children.Add(folder); AddField(fields, L10n.T("ui.folder"), folders, 1);
-            AddField(fields, L10n.T("ui.box_name"), title, 2);
-            foreach (Control input in new Control[] { distro, folder, title }) input.Padding = new Thickness(7, 6, 7, 6);
+            folders.Children.Add(folder); AddField(fields, L10n.T("ui.folder"), folders, 2);
+            AddField(fields, L10n.T("ui.box_name"), title, 3);
+            foreach (Control input in new Control[] { distro, linuxUser, folder, title }) input.Padding = new Thickness(7, 6, 7, 6);
             if (!String.IsNullOrWhiteSpace(distribution)) { distro.Items.Add(distribution); distro.SelectedIndex = 0; }
             folder.Text = path ?? ""; title.Text = boxTitle ?? "";
             layout.Children.Add(fields);
             layout.Children.Add(new TextBlock { Text = L10n.T("ui.accepts_linux_paths_or_wsl_unc_paths_such_as_wsl_localhost_and_w"),
-                Foreground = Brushes.DimGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 5) });
+                Foreground = Theme.PanelMuted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 5) });
             titleHint.Margin = new Thickness(0, 0, 0, 12); layout.Children.Add(titleHint);
+            showTrashTab.Content = L10n.T("ui.show_trash_tab");
+            showTrashTab.IsChecked = showTrash;
+            showTrashTab.Margin = new Thickness(0, 0, 0, 12);
+            layout.Children.Add(showTrashTab);
             status.Margin = new Thickness(0, 0, 0, 16); layout.Children.Add(status);
             var right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             ok.MinWidth = 80; ok.Padding = new Thickness(14, 7, 14, 7); ok.IsEnabled = false;
@@ -63,7 +76,11 @@ namespace WSLBox
             distro.SelectionChanged += async (sender, e) => {
                 if (loading || closed) return;
                 folder.Text = "";
-                await HomeFolder();
+                linuxUser.Text = defaultUser;
+                SetWorking(true);
+                try { await LoadLinuxUsers(); }
+                finally { if (!closed) SetWorking(false); }
+                if (!closed) await HomeFolder();
             };
             reload.Click += async (sender, e) => await LoadDistributions(Distro);
             home.Click += async (sender, e) => await HomeFolder();
@@ -83,7 +100,7 @@ namespace WSLBox
                 {
                     string selected = WslSetup.LinuxPath(Distro, Folder);
                     SetWorking(true); Message(L10n.T("ui.checking_the_folder"), false);
-                    Reply reply = await client.Run(Distro, "folder-info", selected);
+                    Reply reply = await new WslClient(backendPath, LinuxUser).Run(Distro, "folder-info", selected);
                     if (closed) return;
                     folder.Text = reply.Path; DialogResult = true;
                 }
@@ -96,13 +113,13 @@ namespace WSLBox
         }
         private void Message(string text, bool error)
         {
-            status.Text = text; status.Foreground = error ? Brushes.Firebrick : Brushes.DimGray;
+            status.Text = text; status.Foreground = error ? Theme.PanelError : Theme.PanelMuted;
         }
         private void SetWorking(bool working)
         {
             loading = working;
             distro.IsEnabled = reload.IsEnabled = title.IsEnabled = !working;
-            browse.IsEnabled = home.IsEnabled = folder.IsEnabled = ok.IsEnabled = !working && !String.IsNullOrEmpty(Distro);
+            linuxUser.IsEnabled = browse.IsEnabled = home.IsEnabled = folder.IsEnabled = ok.IsEnabled = !working && !String.IsNullOrEmpty(Distro);
         }
         private async System.Threading.Tasks.Task LoadDistributions(string preferred)
         {
@@ -115,12 +132,24 @@ namespace WSLBox
                 string choice = !String.IsNullOrWhiteSpace(preferred) ? preferred : WslSetup.DefaultDistribution();
                 distro.SelectedItem = System.Linq.Enumerable.FirstOrDefault(names, name => String.Equals(name, choice, StringComparison.OrdinalIgnoreCase));
                 if (distro.SelectedItem == null && String.IsNullOrWhiteSpace(preferred) && names.Length > 0) distro.SelectedIndex = 0;
+                if (!String.IsNullOrEmpty(Distro)) await LoadLinuxUsers();
+                if (closed) return;
                 Message(names.Length == 0 ? L10n.T("ui.no_distribution_found_install_a_wsl_distribution_then_refresh") :
                     distro.SelectedItem == null ? L10n.T("ui.the_previous_distribution_is_unavailable_choose_another_one") : L10n.T("ui.distribution_list_updated"), names.Length == 0 || distro.SelectedItem == null);
             }
             catch (Exception ex) { if (!closed) { distro.SelectedIndex = -1; Message(ex.Message, true); } }
             finally { if (!closed) SetWorking(false); }
             if (!closed && !String.IsNullOrEmpty(Distro) && String.IsNullOrWhiteSpace(folder.Text)) await HomeFolder();
+        }
+        private async System.Threading.Tasks.Task LoadLinuxUsers()
+        {
+            string selected = LinuxUser;
+            string[] names = new string[0];
+            try { names = (await client.Run(Distro, "users", null)).Users ?? names; }
+            catch { /* The editable field still accepts an account name. */ }
+            if (closed) return;
+            linuxUser.ItemsSource = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Concat(new[] { defaultUser }, names));
+            linuxUser.Text = String.IsNullOrEmpty(selected) ? defaultUser : selected;
         }
         private async System.Threading.Tasks.Task HomeFolder()
         {
@@ -129,7 +158,7 @@ namespace WSLBox
             SetWorking(true); Message(L10n.T("ui.loading_the_home_directory"), false);
             try
             {
-                Reply info = await client.Run(selected, "info", null);
+                Reply info = await new WslClient(backendPath, LinuxUser).Run(selected, "info", null);
                 if (closed || generation != homeGeneration || selected != Distro) return;
                 folder.Text = info.Home; Message(L10n.T("ui.selected_this_distribution_s_home_directory"), false);
             }
@@ -161,12 +190,13 @@ namespace WSLBox
         {
             var dialog = new Window { Title = heading, Width = 440, SizeToContent = SizeToContent.Height,
                 ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, Icon = Branding.Image,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner, FontSize = 13,
-                FontFamily = new FontFamily("Microsoft YaHei UI"), Background = Brushes.White, Foreground = Brushes.Black, Owner = owner };
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = owner };
+            Theme.ApplyPanelTheme(dialog);
             var layout = new StackPanel { Margin = new Thickness(20) };
             layout.Children.Add(new TextBlock { Text = folder ? L10n.T("ui.folder_name") : L10n.T("ui.new_name_keep_the_extension_you_need"), Margin = new Thickness(0, 0, 0, 8) });
             var input = new TextBox { Text = initial, Padding = new Thickness(7) }; layout.Children.Add(input);
-            var error = new TextBlock { Foreground = Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 8) }; layout.Children.Add(error);
+            var error = new TextBlock { Foreground = Theme.PanelError, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 8) }; layout.Children.Add(error);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var ok = new Button { Content = L10n.T("ui.ok"), IsDefault = true, MinWidth = 80, Padding = new Thickness(12, 7, 12, 7) };
             var cancel = new Button { Content = L10n.T("ui.cancel"), IsCancel = true, MinWidth = 80, Padding = new Thickness(12, 7, 12, 7), Margin = new Thickness(8, 0, 0, 0) };
@@ -187,29 +217,28 @@ namespace WSLBox
         {
             var window = new Window { Title = L10n.T("ui.about"), Icon = Branding.Image, Width = 510, MinWidth = 360,
                 SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
-                ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 13,
-                Background = Brushes.White, Foreground = Brushes.Black };
+                ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            Theme.ApplyPanelTheme(window);
             if (owner != null) window.Owner = owner;
-            var layout = new StackPanel { Margin = new Thickness(24), Background = Brushes.White };
+            var layout = new StackPanel { Margin = new Thickness(24) };
             var heading = new DockPanel { Margin = new Thickness(0, 0, 0, 18) };
             heading.Children.Add(new Image { Source = Branding.Image, Width = 68, Height = 68, Margin = new Thickness(0, 0, 16, 0) });
             var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             names.Children.Add(new TextBlock { Text = "WSLBox", FontSize = 27, FontWeight = FontWeights.SemiBold });
-            names.Children.Add(new TextBlock { Text = Branding.Version, Foreground = Brushes.DimGray, Margin = new Thickness(0, 4, 0, 0) });
+            names.Children.Add(new TextBlock { Text = Branding.Version, Foreground = Theme.PanelMuted, Margin = new Thickness(0, 4, 0, 0) });
             heading.Children.Add(names); layout.Children.Add(heading);
             layout.Children.Add(new TextBlock { Text = L10n.T("ui.browse_wsl_folders_on_the_windows_desktop_transfer_files_across_"),
                 TextWrapping = TextWrapping.Wrap, LineHeight = 23, Margin = new Thickness(0, 0, 0, 14) });
             layout.Children.Add(new TextBlock { Text = L10n.T("ui.requires_windows_and_wsl2_wslg_license_gnu_gpl_v3"), LineHeight = 23 });
-            layout.Children.Add(new TextBlock { Text = L10n.T("ui.configuration_folder"), Foreground = Brushes.DimGray, Margin = new Thickness(0, 16, 0, 5) });
+            layout.Children.Add(new TextBlock { Text = L10n.T("ui.configuration_folder"), Foreground = Theme.PanelMuted, Margin = new Thickness(0, 16, 0, 5) });
             layout.Children.Add(new TextBox { Text = System.IO.Path.GetDirectoryName(Settings.FilePath), IsReadOnly = true,
-                TextWrapping = TextWrapping.Wrap, BorderThickness = new Thickness(0), Background = Brushes.White,
+                TextWrapping = TextWrapping.Wrap, BorderThickness = new Thickness(0),
                 Padding = new Thickness(0), FontSize = 11 });
             var project = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(UpdateService.ProjectUrl)) {
                 NavigateUri = new Uri(UpdateService.ProjectUrl) };
             var projectLine = new TextBlock { Margin = new Thickness(0, 14, 0, 0), TextWrapping = TextWrapping.Wrap };
             projectLine.Inlines.Add(L10n.T("about.project") + " "); projectLine.Inlines.Add(project);
-            var updateStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray,
+            var updateStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Theme.PanelMuted,
                 Margin = new Thickness(0, 9, 0, 0) };
             Action<string> openLink = url => {
                 try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
@@ -250,14 +279,13 @@ namespace WSLBox
             var window = new Window { Title = L10n.T("ui.wslbox_help"), Width = 690,
                 Height = Math.Min(760, Math.Max(380, SystemParameters.WorkArea.Height * 0.88)),
                 Icon = Branding.Image, MinWidth = 520, MinHeight = 380, ShowInTaskbar = false,
-                FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 13,
-                Background = Brushes.White, Foreground = Brushes.Black,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            Theme.ApplyPanelTheme(window);
             if (owner != null) window.Owner = owner;
-            var content = new StackPanel { Margin = new Thickness(24), Background = Brushes.White };
+            var content = new StackPanel { Margin = new Thickness(24) };
             content.Children.Add(new TextBlock { Text = L10n.T("ui.help_and_shortcuts"), FontSize = 23, FontWeight = FontWeights.SemiBold });
             content.Children.Add(new TextBlock { Text = L10n.T("help.intro"), TextWrapping = TextWrapping.Wrap,
-                Foreground = Brushes.DimGray, Margin = new Thickness(0, 8, 0, 2), LineHeight = 21 });
+                Foreground = Theme.PanelMuted, Margin = new Thickness(0, 8, 0, 2), LineHeight = 21 });
             HelpTable(content, "help.windows", new[,] {
                 { "help.desktop", "help.desktop_gesture" }, { "help.move", "help.move_gesture" },
                 { "help.maximize", "help.maximize_gesture" }, { "help.resize", "help.resize_gesture" },
@@ -280,7 +308,7 @@ namespace WSLBox
             content.Children.Add(new TextBlock { Text = L10n.T("help.notes_title"), FontSize = 17,
                 FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 22, 0, 8) });
             content.Children.Add(new TextBlock { Text = L10n.T("help.notes"), TextWrapping = TextWrapping.Wrap, LineHeight = 23 });
-            window.Content = new ScrollViewer { Background = Brushes.White, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            window.Content = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = content };
             window.PreviewKeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Escape) { window.Close(); e.Handled = true; } };
             return window;
@@ -305,9 +333,9 @@ namespace WSLBox
                 var text = new TextBlock { Text = column == 0 ? action : shortcut, TextWrapping = TextWrapping.Wrap,
                     FontWeight = heading ? FontWeights.SemiBold : FontWeights.Normal, LineHeight = 21 };
                 var cell = new Border { Padding = new Thickness(10, 7, 10, 7), Child = text,
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(226, 230, 235)), BorderThickness = new Thickness(0, 0, 0, 1),
-                    Background = heading ? new SolidColorBrush(Color.FromRgb(233, 239, 247)) :
-                        row % 2 == 0 ? new SolidColorBrush(Color.FromRgb(248, 250, 252)) : Brushes.White };
+                    BorderThickness = new Thickness(0, 0, 0, 1) };
+                cell.SetResourceReference(Border.BorderBrushProperty, SystemColors.ControlDarkBrushKey);
+                if (heading || row % 2 == 0) cell.SetResourceReference(Border.BackgroundProperty, SystemColors.ControlBrushKey);
                 Grid.SetRow(cell, row); Grid.SetColumn(cell, column); grid.Children.Add(cell);
             }
         }

@@ -49,7 +49,8 @@ namespace WSLBox
     {
         private readonly Settings settings;
         private readonly BoxWorkspace workspace;
-        private readonly WslClient wsl;
+        private static readonly string backendPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend.py");
+        private WslClient wsl;
         private readonly FolderHistory history = new FolderHistory();
         private readonly Border plate = new Border();
         private readonly Grid body = new Grid();
@@ -57,6 +58,12 @@ namespace WSLBox
         private readonly TextBlock status = new TextBlock();
         private readonly ListBox list = new ListBox();
         private readonly WrapPanel filters = new WrapPanel();
+        private readonly Button trashTab = new Button();
+        private readonly ListBox trashList = new ListBox();
+        private readonly TextBlock trashMessage = new TextBlock();
+        private bool showingTrash, trashListing;
+        private Entry[] listedTrashEntries;
+        private string trashDirectory;
         private readonly ResizeGrip grip = new ResizeGrip();
         private readonly Button viewButton;
         private readonly Button lockButton;
@@ -70,8 +77,8 @@ namespace WSLBox
             get { return settings.Collapsed && !hoverExpanded; }
             set { hoverTimer.Stop(); hoverExpanded = false; settings.Collapsed = value; }
         }
-        private readonly ContextMenu menu = new ContextMenu();
-        private readonly ContextMenu fileMenu = new ContextMenu();
+        private readonly ContextMenu menu = Theme.CreateMenu();
+        private readonly ContextMenu fileMenu = Theme.CreateMenu();
         private bool IsContextMenuOpen { get { return contextOpen || fileMenu.IsOpen; } }
         private List<FileModel> models = new List<FileModel>();
         private bool busy, listing, initialized, opening, dragging, closing, applyingBounds, contextOpen;
@@ -108,12 +115,12 @@ namespace WSLBox
         {
             this.settings = settings; this.workspace = workspace; settings.Normalize();
             currentFolder = settings.Folder;
-            wsl = new WslClient(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend.py"));
+            wsl = new WslClient(backendPath, settings.LinuxUser);
             Title = "WSLBox"; WindowStyle = WindowStyle.None; AllowsTransparency = true;
             Icon = Branding.Image;
             Background = Brushes.Transparent; Foreground = Theme.Text;
             FontFamily = new FontFamily("Microsoft YaHei UI"); FontSize = 13;
-            ShowInTaskbar = false; ResizeMode = ResizeMode.CanResizeWithGrip;
+            ShowInTaskbar = false; Topmost = settings.WindowLayer == "top"; ResizeMode = ResizeMode.CanResizeWithGrip;
             Resources = Theme.Resources(); MinWidth = 280;
             Width = settings.Bounds.Width; Height = settings.Bounds.Height; Left = settings.Bounds.Left; Top = settings.Bounds.Top;
             // Clamp to the desktop in WPF device-independent coordinates.
@@ -242,16 +249,41 @@ namespace WSLBox
 
             body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             body.RowDefinitions.Add(new RowDefinition());
-            filters.Margin = new Thickness(0, 3, 0, 7);
-            body.Children.Add(filters);
+            var categoryBar = new DockPanel { Margin = new Thickness(0, 3, 0, 7) };
+            ConfigureCategoryButton(trashTab, "trash", L10n.T("ui.trash_tab"));
+            trashTab.Visibility = settings.ShowTrashTab != false ? Visibility.Visible : Visibility.Collapsed;
+            trashTab.Click += async (s, e) =>
+            {
+                if (busy || closing || !initialized) return;
+                await NavigateTrash(null);
+            };
+            DockPanel.SetDock(trashTab, Dock.Right);
+            categoryBar.Children.Add(trashTab);
+            categoryBar.Children.Add(filters);
+            body.Children.Add(categoryBar);
             foreach (string[] filter in new[] {
-                new[] { "all", L10n.T("ui.all") }, new[] { "folders", L10n.T("ui.folders") }, new[] { "documents", L10n.T("ui.documents") },
-                new[] { "images", L10n.T("ui.images") }, new[] { "archives", L10n.T("ui.archives") }, new[] { "other", L10n.T("ui.other") } })
+                new[] { "all", L10n.T("ui.all") }, new[] { "folders", L10n.T("ui.folders") },
+                new[] { "shortcuts", L10n.T("ui.shortcuts") }, new[] { "documents", L10n.T("ui.documents") },
+                new[] { "images", L10n.T("ui.images") }, new[] { "videos", L10n.T("ui.videos") },
+                new[] { "audio", L10n.T("ui.audio") }, new[] { "archives", L10n.T("ui.archives") },
+                new[] { "other", L10n.T("ui.other") } })
             {
                 string key = filter[0];
-                var button = new Button { Content = filter[1], Tag = key, Style = (Style)Resources["HeaderButton"],
-                    Width = Double.NaN, Height = 28, FontSize = 12, MinWidth = 38, Padding = new Thickness(6, 0, 6, 0), Margin = new Thickness(1, 0, 1, 0) };
-                button.Click += (s, e) => { settings.Filter = key; ApplyFilter(); Persist(); };
+                var button = new Button();
+                ConfigureCategoryButton(button, key, filter[1]);
+                button.Visibility = key == "all" ? Visibility.Visible : Visibility.Collapsed;
+                button.Click += (s, e) =>
+                {
+                    if (busy || closing) return;
+                    if (showingTrash)
+                    {
+                        SetTrashVisible(false);
+                        history.Record(currentFolder);
+                    }
+                    settings.Filter = key;
+                    ApplyFilter();
+                    Persist();
+                };
                 filters.Children.Add(button);
             }
             list.Background = Brushes.Transparent; list.BorderThickness = new Thickness(0); list.Padding = new Thickness(0);
@@ -340,6 +372,60 @@ namespace WSLBox
             };
             list.DragLeave += (s, e) => { if (!busy) ClearDropPreview(); };
             Grid.SetRow(list, 1); body.Children.Add(list);
+            trashList.Background = Brushes.Transparent;
+            trashList.Foreground = Theme.Text;
+            trashList.BorderThickness = new Thickness(0);
+            trashList.Padding = new Thickness(0);
+            trashList.Style = (Style)Resources["FileList"];
+            trashList.ItemContainerStyle = (Style)Resources["FileItem"];
+            trashList.Visibility = Visibility.Collapsed;
+            trashList.SelectionMode = SelectionMode.Extended;
+            trashList.PreviewMouseRightButtonDown += (s, e) =>
+            {
+                var row = Ancestor<ListBoxItem>(e.OriginalSource as DependencyObject);
+                if (row == null) trashList.UnselectAll();
+                else if (!row.IsSelected) trashList.SelectedItem = row.DataContext;
+            };
+            trashList.MouseDoubleClick += async (s, e) =>
+            {
+                var row = Ancestor<ListBoxItem>(e.OriginalSource as DependencyObject);
+                var model = row == null ? null : row.DataContext as FileModel;
+                if (model != null) await ActivateItem(model);
+                else if (Ancestor<ScrollBar>(e.OriginalSource as DependencyObject) == null) await RevealTrashFolder();
+                else return;
+                e.Handled = true;
+            };
+            var trashMenu = Theme.CreateMenu();
+            var openTrashed = AddMenu(trashMenu, L10n.T("ui.open"), OpenTrashSelection);
+            var upTrash = AddMenu(trashMenu, L10n.T("ui.trash_parent"), UpTrash);
+            trashMenu.Items.Add(new Separator());
+            var restoreTrashed = AddMenu(trashMenu, L10n.T("ui.trash_restore"), () => ChangeTrashSelection(false));
+            var deleteTrashed = AddMenu(trashMenu, L10n.T("ui.permanently_delete"), () => ChangeTrashSelection(true));
+            var restoreAll = AddMenu(trashMenu, L10n.T("ui.trash_restore_all"), () => ChangeTrashSelection(false, true));
+            var purgeAll = AddMenu(trashMenu, L10n.T("ui.trash_purge_all"), () => ChangeTrashSelection(true, true));
+            trashMenu.Opened += (s, e) =>
+            {
+                bool selected = trashList.SelectedItems.Count > 0;
+                bool atRoot = trashDirectory == null;
+                openTrashed.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+                openTrashed.IsEnabled = !busy && trashList.SelectedItems.Count == 1;
+                upTrash.IsEnabled = !busy && !atRoot;
+                restoreTrashed.Visibility = deleteTrashed.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+                restoreTrashed.IsEnabled = deleteTrashed.IsEnabled = !busy && atRoot && selected;
+                restoreAll.Visibility = purgeAll.Visibility = !selected && atRoot ? Visibility.Visible : Visibility.Collapsed;
+                restoreAll.IsEnabled = purgeAll.IsEnabled = !busy && !trashListing && trashList.Items.Count > 0;
+            };
+            trashList.ContextMenu = trashMenu;
+            ScrollViewer.SetHorizontalScrollBarVisibility(trashList, ScrollBarVisibility.Disabled);
+            ScrollViewer.SetVerticalScrollBarVisibility(trashList, ScrollBarVisibility.Auto);
+            Grid.SetRow(trashList, 1); body.Children.Add(trashList);
+            trashMessage.Foreground = Theme.Muted;
+            trashMessage.TextWrapping = TextWrapping.Wrap;
+            trashMessage.HorizontalAlignment = HorizontalAlignment.Center;
+            trashMessage.VerticalAlignment = VerticalAlignment.Center;
+            trashMessage.IsHitTestVisible = false;
+            trashMessage.Visibility = Visibility.Collapsed;
+            Grid.SetRow(trashMessage, 1); body.Children.Add(trashMessage);
             Grid.SetRow(body, 1); layout.Children.Add(body);
             status.Foreground = Theme.Muted; status.FontSize = 11; status.TextWrapping = TextWrapping.NoWrap;
             status.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -365,12 +451,14 @@ namespace WSLBox
                 { e.Handled = true; await HistoryNavigate(e.ChangedButton == MouseButton.XButton2); }
             };
             PreviewKeyDown += OnKey;
+            Activated += (s, e) => QueueBottomPlacement();
             Loaded += async (s, e) => await Initialize();
             MouseEnter += (s, e) => HoverEnter();
             MouseLeave += (s, e) => { hoverTimer.Stop(); if (hoverExpanded) ScheduleHover(120); };
             hoverTimer.Tick += (s, e) => HoverTick();
             IsVisibleChanged += async (s, e) => {
                 ++thumbnailGeneration;
+                if (IsVisible) QueueBottomPlacement();
                 if (!IsVisible) { hoverTimer.Stop(); SetHoverExpanded(false); ClearDropPreview(); }
                 if (IsVisible && initialized && !closing)
                 {
@@ -381,7 +469,8 @@ namespace WSLBox
             SourceInitialized += (s, e) =>
             {
                 var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
-                if (source != null) source.AddHook(ResizeWindowMessage);
+                if (source != null) source.AddHook(HandleWindowMessage);
+                WindowEffects.SetMouseActivation(this, settings.WindowLayer != "bottom");
             };
             Closing += OnClosing;
             Closed += (s, e) => {
@@ -401,9 +490,15 @@ namespace WSLBox
             SetView(settings.ViewMode, false); ApplyWindowLayout(null); UpdateTitle();
         }
 
-        private IntPtr ResizeWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+        private IntPtr HandleWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            const int hitTest = 0x0084, enterSizeMove = 0x0231, exitSizeMove = 0x0232;
+            const int mouseActivate = 0x0021, hitTest = 0x0084, enterSizeMove = 0x0231, exitSizeMove = 0x0232;
+            if (message == mouseActivate && settings.WindowLayer == "bottom")
+            {
+                // Let the click reach the box without letting Windows raise it first.
+                handled = true;
+                return new IntPtr(3); // MA_NOACTIVATE
+            }
             if (message == enterSizeMove)
             {
                 WindowEffects.TryGetBounds(this, out sizingStart);
@@ -441,6 +536,7 @@ namespace WSLBox
         private void OnWindowStateChanged(object sender, EventArgs e)
         {
             if (WindowState == WindowState.Minimized) { ++thumbnailGeneration; return; }
+            QueueBottomPlacement();
             if (applyingBounds || settings.Collapsed || closing) return;
             if (initialized) LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
             if (WindowState == WindowState.Maximized)
@@ -559,15 +655,23 @@ namespace WSLBox
                         action == ShellMenuAction.Descending ? settings.SortDescending : !settings.SortDescending;
                 }
             };
-            var opacity = new MenuItem { Header = L10n.T("ui.background_opacity") };
-            foreach (int percent in new[] { 25, 45, 65, 85, 95 })
+            AddBackgroundTransparencyControl();
+            var layers = new MenuItem { Header = L10n.T("ui.window_layer") };
+            foreach (string value in new[] { "top", "bottom", "normal" })
             {
-                int value = percent;
-                var item = new MenuItem { Header = L10n.T("ui.background_opacity_3bc015") + percent + "%" };
-                item.Click += (s, e) => { settings.BackgroundOpacity = value / 100.0; ApplyAppearance(); Persist(); };
-                opacity.Items.Add(item);
+                var option = new MenuItem { Header = L10n.T("ui.window_layer_" + value), IsCheckable = true };
+                layers.SubmenuOpened += (s, e) => option.IsChecked = settings.WindowLayer == value;
+                option.Click += (s, e) =>
+                {
+                    settings.WindowLayer = value;
+                    WindowEffects.SetMouseActivation(this, value != "bottom");
+                    Topmost = value == "top";
+                    if (value == "bottom") QueueBottomPlacement();
+                    Persist();
+                };
+                layers.Items.Add(option);
             }
-            menu.Items.Add(opacity);
+            menu.Items.Add(layers);
             menu.Items.Add(new Separator());
             AddMenu(menu, L10n.T("ui.restore_window_ctrl_shift_r_2d0a09"), () => { RestoreWindow(); return Done(); });
             var snap = new MenuItem { Header = L10n.T("ui.edge_magnetism"), IsCheckable = true, IsChecked = settings.SnapToEdges != false };
@@ -627,6 +731,61 @@ namespace WSLBox
                 e.Handled = true;
                 await NativeContextMenu(PointToScreen(e.GetPosition(this)));
             };
+        }
+        private void AddBackgroundTransparencyControl()
+        {
+            string label = L10n.T("ui.background_opacity");
+            var transparency = new MenuItem { Header = label, Resources = Theme.MenuControlResources() };
+            var slider = new Slider
+            {
+                Minimum = 0, Maximum = 100, Value = Math.Round((1 - settings.BackgroundOpacity) * 100),
+                TickFrequency = 1, IsSnapToTickEnabled = true, IsMoveToPointEnabled = true,
+                SmallChange = 1, LargeChange = 10, Width = 150, VerticalAlignment = VerticalAlignment.Center
+            };
+            slider.SetResourceReference(StyleProperty, "PanelSlider");
+            System.Windows.Automation.AutomationProperties.SetName(slider, label);
+            var percentage = new TextBlock { MinWidth = 38, Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right };
+            var controls = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 4, 4) };
+            controls.Children.Add(slider);
+            controls.Children.Add(percentage);
+            var steppers = new StackPanel();
+            var stepperFrame = new Border { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Child = steppers };
+            stepperFrame.SetResourceReference(Border.BorderBrushProperty, SystemColors.ControlDarkBrushKey);
+            foreach (int step in new[] { 1, -1 })
+            {
+                string hint = L10n.T(step > 0 ? "ui.increase_transparency" : "ui.decrease_transparency");
+                var button = new RepeatButton { Content = step > 0 ? "▴" : "▾", Width = 22, Height = 16,
+                    Padding = new Thickness(0), ToolTip = hint };
+                button.SetResourceReference(StyleProperty, "PanelStepper");
+                System.Windows.Automation.AutomationProperties.SetName(button, hint);
+                button.Click += (sender, e) => slider.Value += step;
+                steppers.Children.Add(button);
+            }
+            controls.Children.Add(stepperFrame);
+            var controlItem = new MenuItem { Header = controls, StaysOpenOnClick = true };
+            controlItem.SetResourceReference(StyleProperty, "PanelMenuControl");
+            transparency.Items.Add(controlItem);
+            percentage.Text = (slider.Value / 100).ToString("P0");
+
+            bool changed = false;
+            slider.ValueChanged += (sender, e) =>
+            {
+                percentage.Text = (e.NewValue / 100).ToString("P0");
+                settings.BackgroundOpacity = (100 - e.NewValue) / 100;
+                ApplyBackgroundOpacity();
+                changed = true;
+            };
+            RoutedEventHandler save = (sender, e) =>
+            {
+                if (!changed) return;
+                changed = false;
+                Persist();
+            };
+            transparency.SubmenuClosed += save;
+            menu.Closed += save;
+            menu.Items.Add(transparency);
         }
         private void ShowBoxMenu(FrameworkElement target, Point? point = null)
         {
@@ -836,6 +995,18 @@ namespace WSLBox
             settings.EdgeLayout = target == PointerSnap.Left ? "left" : target == PointerSnap.Right ? "right" : "";
             ApplyWindowLayout(work); Persist();
         }
+        private void QueueBottomPlacement()
+        {
+            if (settings.WindowLayer != "bottom" || closing) return;
+            // Activation can raise the window. Put it back after native processing
+            // without changing the keyboard focus or the box's bounds.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (settings.WindowLayer == "bottom" && !closing && IsVisible && WindowState != WindowState.Minimized)
+                    WindowEffects.SendToBottom(this);
+            }));
+        }
+
         public void ShowInBackground()
         {
             if (!closing) WindowEffects.ShowInBackground(this);
@@ -859,9 +1030,15 @@ namespace WSLBox
                 title.ToolTip = Convert.ToString(title.ToolTip) + "\n\n" + status.Text;
             Title = "WSLBox · " + title.Text;
         }
+        private void ApplyBackgroundOpacity()
+        {
+            // A zero-alpha pixel in a layered window lets mouse events through.
+            byte alpha = (byte)Math.Max(1, Math.Round(255 * settings.BackgroundOpacity));
+            plate.Background = new SolidColorBrush(Color.FromArgb(alpha, 15, 19, 26));
+        }
         private void ApplyAppearance()
         {
-            plate.Background = new SolidColorBrush(Color.FromArgb((byte)(255 * settings.BackgroundOpacity), 15, 19, 26));
+            ApplyBackgroundOpacity();
             lockButton.FontFamily = new FontFamily("Segoe MDL2 Assets");
             lockButton.FontSize = 16;
             lockButton.Content = settings.Locked ? "\uE72E" : "\uE785";
@@ -987,13 +1164,182 @@ namespace WSLBox
             list.ItemTemplate = (DataTemplate)XamlReader.Parse(icons
                 ? "<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><StackPanel Width='" + itemWidth + "' Height='" + itemHeight + "' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='" + iconSize + "' Height='" + iconSize + "' Margin='" + iconMargin + "'/><TextBlock Name='FileName' Text='{Binding Label}' TextAlignment='Center' TextWrapping='Wrap' TextTrimming='CharacterEllipsis' MaxHeight='36' FontSize='12'/></StackPanel></DataTemplate>"
                 : @"<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><DockPanel Height='29' ToolTip='{Binding Path}'><Image Source='{Binding Icon}' Width='20' Height='20' Margin='3,0,9,0' DockPanel.Dock='Left'/><TextBlock Name='FileName' Text='{Binding Label}' VerticalAlignment='Center' TextTrimming='CharacterEllipsis' Margin='0,0,10,0'/></DockPanel></DataTemplate>");
+            trashList.ItemsPanel = list.ItemsPanel;
+            trashList.ItemTemplate = list.ItemTemplate;
             if (save) Persist();
+        }
+        private void ConfigureCategoryButton(Button button, string key, string label)
+        {
+            button.Content = label;
+            button.Tag = key;
+            button.Style = (Style)Resources["HeaderButton"];
+            button.Width = Double.NaN;
+            button.Height = 28;
+            button.FontSize = 12;
+            button.MinWidth = 38;
+            button.Padding = new Thickness(6, 0, 6, 0);
+            button.Margin = new Thickness(1);
+        }
+        private void UpdateCategorySelection()
+        {
+            var selected = new SolidColorBrush(Color.FromRgb(153, 229, 103));
+            foreach (Button button in filters.Children)
+                button.Foreground = !showingTrash && (string)button.Tag == settings.Filter ? selected : Theme.Text;
+            trashTab.Foreground = showingTrash ? selected : Theme.Text;
+        }
+        private void SetTrashVisible(bool visible)
+        {
+            if (showingTrash == visible) return;
+            showingTrash = visible;
+            if (renameEditor != null) renameEditor.Cancel();
+            list.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
+            trashList.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            trashMessage.Text = L10n.T("ui.trash_loading");
+            trashMessage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            if (!visible)
+            {
+                trashDirectory = null;
+                trashList.ItemsSource = null;
+                listedTrashEntries = null;
+            }
+            UpdateCategorySelection();
+        }
+        private Task OpenTrashSelection()
+        {
+            var model = trashList.SelectedItem as FileModel;
+            return model == null ? Done() : ActivateItem(model);
+        }
+        private Task UpTrash()
+        {
+            if (trashDirectory == null) return Done();
+            int slash = trashDirectory.LastIndexOf('/');
+            return NavigateTrash(slash < 0 ? null : trashDirectory.Substring(0, slash));
+        }
+        private const string TrashHistoryPrefix = "trash://";
+        private Task<bool> NavigateTrash(string directory) { return Navigate(TrashHistoryPrefix + directory); }
+        private void ShowTrashDirectory(string directory, Reply reply)
+        {
+            if (trashDirectory != directory)
+            {
+                trashDirectory = directory;
+                listedTrashEntries = null;
+                trashList.ItemsSource = null;
+                trashMessage.Text = L10n.T("ui.trash_loading");
+                trashMessage.Visibility = Visibility.Visible;
+            }
+            SetTrashVisible(true);
+            ShowTrashEntries(reply);
+        }
+        private async Task ChangeTrashSelection(bool permanent, bool all = false)
+        {
+            if (!showingTrash || trashDirectory != null || busy || opening || !initialized || closing) return;
+            if (all && trashListing) return;
+            var items = all ? trashList.Items.Cast<FileModel>() : trashList.SelectedItems.Cast<FileModel>();
+            string[] tokens = items.Select(model => model.Entry.TrashId).ToArray();
+            if (tokens.Length == 0 || tokens.Any(String.IsNullOrEmpty)) return;
+            string action = L10n.T(all
+                ? (permanent ? "ui.trash_purge_all" : "ui.trash_restore_all")
+                : (permanent ? "ui.permanently_delete" : "ui.trash_restore"));
+            if (all || permanent)
+            {
+                string confirmation = permanent
+                    ? (all ? L10n.F("ui.trash_confirm_purge_all", tokens.Length) : L10n.F("ui.trash_confirm_purge", tokens.Length))
+                    : L10n.F("ui.trash_confirm_restore_all", tokens.Length);
+                if (MessageBox.Show(this, confirmation, action, MessageBoxButton.YesNo,
+                    permanent ? MessageBoxImage.Warning : MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+            }
+            busy = true;
+            int completed = 0;
+            var failures = new List<FileFailure>();
+            Notify(L10n.T("ui.working") + action, false);
+            try
+            {
+                foreach (string[] batch in FileActions.Batches(tokens))
+                {
+                    Reply reply = await wsl.Run(settings.Distro, permanent ? "purge-trash" : "restore-trash",
+                        Json.Write(new FileRequest { Paths = batch }));
+                    completed += reply.Completed;
+                    if (reply.Failures != null) failures.AddRange(reply.Failures);
+                }
+                if (failures.Count > 0)
+                    throw new IOException(completed + L10n.T("ui.item_s_completed") + failures.Count + L10n.T("ui.item_s_failed")
+                        + String.Join("\n", failures.Take(6).Select(failure => failure.Path + "：" + failure.Error)));
+                Notify(L10n.F(permanent ? "files.deleted_count" : "files.restored_count", completed));
+            }
+            catch (Exception ex) { Report(ex); }
+            finally { busy = false; }
+            await RefreshTrash();
+        }
+        private async Task RefreshTrash()
+        {
+            if (!showingTrash || trashListing || busy || closing || !initialized) return;
+            string distro = settings.Distro, requested = trashDirectory;
+            WslClient client = wsl;
+            trashListing = true;
+            try
+            {
+                Reply reply = await client.Run(distro, "list-trash", requested);
+                if (closing || !showingTrash || client != wsl || distro != settings.Distro || requested != trashDirectory) return;
+                ShowTrashEntries(reply);
+            }
+            catch (Exception ex)
+            {
+                if (closing || !showingTrash || client != wsl || distro != settings.Distro || requested != trashDirectory) return;
+                trashList.ItemsSource = null;
+                listedTrashEntries = null;
+                trashMessage.Text = L10n.T("ui.read_failed") + ex.Message;
+                trashMessage.Visibility = Visibility.Visible;
+            }
+            finally
+            {
+                trashListing = false;
+                if (showingTrash && !closing && (requested != trashDirectory || distro != settings.Distro || client != wsl))
+                    QueueTrashRefresh();
+            }
+        }
+        private void ShowTrashEntries(Reply reply)
+        {
+            var entries = (reply.Entries ?? new Entry[0]).OrderBy(entry => entry.DisplayName ?? entry.Name,
+                StringComparer.CurrentCultureIgnoreCase).ThenBy(entry => entry.Name, StringComparer.Ordinal).ToArray();
+            if (!FileOrdering.SameEntries(listedTrashEntries, entries))
+            {
+                var icons = DecodeImages(reply.Icons);
+                trashList.ItemsSource = entries.Select(entry =>
+                {
+                    var model = new FileModel();
+                    model.Update(entry, EntryIcon(entry, icons));
+                    return model;
+                }).ToList();
+                listedTrashEntries = entries;
+            }
+            trashMessage.Text = L10n.T("ui.trash_empty");
+            trashMessage.Visibility = entries.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        private void QueueTrashRefresh()
+        {
+            Dispatcher.BeginInvoke(new Action(async () => await RefreshTrash()));
         }
         private static string Category(Entry entry)
         {
+            if (entry.IsLink) return "shortcuts";
             if (entry.IsDirectory) return "folders";
-            string type = entry.ContentType ?? "", ext = System.IO.Path.GetExtension(entry.Name).ToLowerInvariant();
-            if (type.StartsWith("image/")) return "images";
+            string type = entry.ContentType ?? "";
+            string name = entry.Name ?? "";
+            int dot = name.LastIndexOf('.');
+            string ext = dot >= 0 ? name.Substring(dot).ToLowerInvariant() : "";
+            if (ext == ".desktop" || ext == ".lnk" || ext == ".url") return "shortcuts";
+            if (type.StartsWith("image/", StringComparison.Ordinal)) return "images";
+            if (type.StartsWith("video/", StringComparison.Ordinal)) return "videos";
+            if (type.StartsWith("audio/", StringComparison.Ordinal)) return "audio";
+            switch (ext)
+            {
+                case ".mp4": case ".mkv": case ".avi": case ".mov": case ".webm":
+                case ".m4v": case ".mpeg": case ".mpg": case ".wmv": case ".ogv":
+                    return "videos";
+                case ".mp3": case ".wav": case ".flac": case ".m4a": case ".aac":
+                case ".ogg": case ".oga": case ".opus": case ".wma": case ".aiff":
+                    return "audio";
+            }
             if (new[] { ".zip", ".7z", ".tar", ".gz", ".xz", ".bz2", ".rar", ".deb", ".rpm" }.Contains(ext)) return "archives";
             if (type.StartsWith("text/") || new[] { ".pdf", ".doc", ".docx", ".odt", ".xls", ".xlsx", ".ppt", ".pptx" }.Contains(ext)) return "documents";
             return "other";
@@ -1002,7 +1348,19 @@ namespace WSLBox
         {
             if (renameEditor != null) renameEditor.Cancel();
             var selected = new HashSet<string>(list.SelectedItems.Cast<FileModel>().Select(m => m.Path), StringComparer.Ordinal);
-            List<FileModel> shown = models.Where(m => settings.Filter == "all" || Category(m.Entry) == settings.Filter).ToList();
+            var categories = new HashSet<string>(StringComparer.Ordinal);
+            var shown = new List<FileModel>();
+            foreach (FileModel model in models)
+            {
+                string category = Category(model.Entry);
+                categories.Add(category);
+                if (settings.Filter == "all" || settings.Filter == category) shown.Add(model);
+            }
+            if (settings.Filter != "all" && !categories.Contains(settings.Filter))
+            {
+                settings.Filter = "all";
+                shown.AddRange(models);
+            }
             shown.Sort((left, right) => FileOrdering.Compare(left.Entry, right.Entry, settings.SortBy, settings.SortDescending));
             var current = list.ItemsSource as List<FileModel>;
             if (current == null || !current.SequenceEqual(shown))
@@ -1011,7 +1369,12 @@ namespace WSLBox
                 foreach (FileModel model in shown) if (selected.Contains(model.Path)) list.SelectedItems.Add(model);
             }
             foreach (Button button in filters.Children)
-                button.Foreground = (string)button.Tag == settings.Filter ? new SolidColorBrush(Color.FromRgb(153, 229, 103)) : Theme.Text;
+            {
+                string key = (string)button.Tag;
+                button.Visibility = key == "all" || categories.Contains(key)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
+            UpdateCategorySelection();
         }
         private bool ApplyViewSort(ShellMenuAction action)
         {
@@ -1039,18 +1402,22 @@ namespace WSLBox
             {
                 ++thumbnailGeneration;
                 var icons = DecodeImages(reply.Icons);
-                ImageSource folder = Theme.Fallback(true), file = Theme.Fallback(false);
                 var previous = models.ToDictionary(m => m.Path, StringComparer.Ordinal);
                 models = entries.Select(e => {
                     FileModel model;
                     if (!previous.TryGetValue(e.Path, out model)) model = new FileModel();
-                    model.Update(e, e.IconKey != null && icons.ContainsKey(e.IconKey) ? icons[e.IconKey] : e.IsDirectory ? folder : file);
+                    model.Update(e, EntryIcon(e, icons));
                     return model;
                 }).ToList();
                 listedEntries = entries; ApplyFilter();
             }
             if (settings.ShowThumbnails != false) LoadThumbnails(thumbnailGeneration, settings.Distro, currentFolder);
             UpdateTitle();
+        }
+        private static ImageSource EntryIcon(Entry entry, Dictionary<string, ImageSource> icons)
+        {
+            ImageSource image;
+            return entry.IconKey != null && icons.TryGetValue(entry.IconKey, out image) ? image : Theme.Fallback(entry.IsDirectory);
         }
         private Dictionary<string, ImageSource> DecodeImages(LinuxIcon[] source)
         {
@@ -1153,15 +1520,17 @@ namespace WSLBox
         }
         private async Task RefreshFolder(bool explicitRequest)
         {
+            if (showingTrash) { await RefreshTrash(); return; }
             if (busy || listing || !initialized || closing || renameEditor != null || (!explicitRequest && !IsVisible)) return;
+            WslClient client = wsl;
             listing = true;
             string requested = currentFolder, distro = settings.Distro;
             if (explicitRequest) Notify(L10n.T("ui.reading_the_folder"), false);
             string command = ListCommand; bool showHidden = settings.ShowHidden;
             try
             {
-                Reply reply = await wsl.Run(distro, command, requested, showHidden);
-                if (command != ListCommand || showHidden != settings.ShowHidden) return;
+                Reply reply = await client.Run(distro, command, requested, showHidden);
+                if (showingTrash || client != wsl || command != ListCommand || showHidden != settings.ShowHidden) return;
                 if (closing || busy || dragging || IsContextMenuOpen || renameEditor != null || (!explicitRequest && !IsVisible)
                     || requested != currentFolder || distro != settings.Distro) return;
                 ShowEntries(reply); lastError = "";
@@ -1169,8 +1538,8 @@ namespace WSLBox
             }
             catch (Exception ex)
             {
-                if (closing || command != ListCommand || showHidden != settings.ShowHidden || renameEditor != null || requested != currentFolder || distro != settings.Distro) return;
-                models.Clear(); list.ItemsSource = null; listedEntries = null;
+                if (closing || showingTrash || client != wsl || command != ListCommand || showHidden != settings.ShowHidden || renameEditor != null || requested != currentFolder || distro != settings.Distro) return;
+                models.Clear(); listedEntries = null; ApplyFilter();
                 Notify(L10n.T("ui.read_failed") + ex.Message);
                 if (explicitRequest && lastError != ex.Message) Report(ex);
                 lastError = ex.Message;
@@ -1183,13 +1552,22 @@ namespace WSLBox
             busy = true; Notify(L10n.T("ui.opening_the_folder"), false);
             try
             {
-                Reply reply = await wsl.Run(settings.Distro, ListCommand, path, settings.ShowHidden);
+                bool trash = path.StartsWith(TrashHistoryPrefix, StringComparison.Ordinal);
+                string directory = trash && path.Length > TrashHistoryPrefix.Length ? path.Substring(TrashHistoryPrefix.Length) : null;
+                Reply reply = trash
+                    ? await wsl.Run(settings.Distro, "list-trash", directory)
+                    : await wsl.Run(settings.Distro, ListCommand, path, settings.ShowHidden);
                 if (closing) return false;
-                ShowEntries(reply);
+                if (trash) ShowTrashDirectory(directory, reply);
+                else
+                {
+                    SetTrashVisible(false);
+                    ShowEntries(reply);
+                }
                 if (historyStep < 0) history.CommitBack();
                 else if (historyStep > 0) history.CommitForward();
-                else history.Record(reply.Path);
-                Persist(); Notify(models.Count + L10n.T("ui.items")); return true;
+                else history.Record(trash ? path : reply.Path);
+                Persist(); Notify((reply.Entries ?? new Entry[0]).Length + L10n.T("ui.items")); return true;
             }
             catch (Exception ex) { Report(ex); return false; }
             finally { busy = false; }
@@ -1207,17 +1585,24 @@ namespace WSLBox
         private Task<bool> Home() { return Navigate(settings.Folder); }
         private async Task Configure()
         {
-            if (busy) return;
-            var dialog = new ConfigForm(settings.Distro, settings.Folder, settings.Title) { Owner = this };
+            if (busy || opening || dragging) return;
+            var dialog = new ConfigForm(settings.Distro, settings.Folder, settings.Title, settings.ShowTrashTab != false, settings.LinuxUser) { Owner = this };
             if (dialog.ShowDialog() != true) return;
             busy = true; Notify(L10n.T("ui.checking_the_folder"), false);
             try
             {
-                Reply reply = await wsl.Run(dialog.Distro, ListCommand, dialog.Folder, settings.ShowHidden);
+                var selected = new WslClient(backendPath, dialog.LinuxUser);
+                Reply reply = await selected.Run(dialog.Distro, ListCommand, dialog.Folder, settings.ShowHidden);
                 if (closing) return;
+                ++thumbnailGeneration;
+                listedEntries = null;
+                wsl = selected;
+                settings.LinuxUser = dialog.LinuxUser;
                 settings.Distro = dialog.Distro; settings.Title = dialog.BoxTitle; settings.Folder = reply.Path;
+                settings.ShowTrashTab = dialog.ShowTrashTab;
+                trashTab.Visibility = dialog.ShowTrashTab ? Visibility.Visible : Visibility.Collapsed;
                 wsl.PrepareOpen(settings.Distro);
-                initialized = true; ShowEntries(reply); history.Reset(reply.Path); Persist(); Notify(models.Count + L10n.T("ui.items"));
+                initialized = true; SetTrashVisible(false); ShowEntries(reply); history.Reset(reply.Path); Persist(); Notify(models.Count + L10n.T("ui.items"));
             }
             catch (Exception ex) { Report(ex); }
             finally { busy = false; }
@@ -1225,7 +1610,11 @@ namespace WSLBox
         private async Task ActivateItem(FileModel model)
         {
             if (busy) return;
-            if (model.Entry.IsDirectory) await Navigate(model.Path);
+            if (model.Entry.IsDirectory)
+            {
+                if (model.Entry.TrashId != null) await NavigateTrash(model.Entry.TrashId);
+                else await Navigate(model.Path);
+            }
             else await OpenItems(new[] { model });
         }
         private Task OpenSelected() { return OpenItems(list.SelectedItems.Cast<FileModel>().ToArray()); }
@@ -1238,7 +1627,9 @@ namespace WSLBox
                 string application = L10n.T("ui.linux_default_application"), inputWarning = null;
                 foreach (FileModel model in selected)
                 {
-                    Reply reply = await wsl.Run(settings.Distro, "open", model.Path);
+                    Reply reply = model.Entry.TrashId == null
+                        ? await wsl.Run(settings.Distro, "open", model.Path)
+                        : await wsl.Run(settings.Distro, "open-trashed-file", model.Entry.TrashId);
                     if (!reply.Ok) throw new IOException(L10n.T("ui.the_linux_default_app_did_not_acknowledge_the_request"));
                     if (!String.IsNullOrEmpty(reply.Application)) application = reply.Application;
                     if (!String.IsNullOrEmpty(reply.InputMethodWarning)) inputWarning = reply.InputMethodWarning;
@@ -1255,6 +1646,41 @@ namespace WSLBox
                 Keyboard.FocusedElement is ButtonBase, Collapsed, key, Keyboard.Modifiers)) return;
             bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
             bool alt = (Keyboard.Modifiers & ModifierKeys.Alt) != 0;
+            if (alt && (key == Key.Left || key == Key.Right))
+            {
+                e.Handled = true;
+                await HistoryNavigate(key == Key.Right);
+                return;
+            }
+            if (showingTrash)
+            {
+                if (ctrl && key == Key.L)
+                {
+                    e.Handled = true;
+                    await Configure();
+                }
+                else if (key == Key.F5 || (ctrl && key == Key.R))
+                {
+                    e.Handled = true;
+                    await RefreshTrash();
+                }
+                else if (key == Key.Enter && trashList.SelectedItems.Count == 1)
+                {
+                    e.Handled = true;
+                    await OpenTrashSelection();
+                }
+                else if (key == Key.Back || (alt && key == Key.Up))
+                {
+                    e.Handled = true;
+                    await UpTrash();
+                }
+                else if (key == Key.Delete && !ctrl && !alt)
+                {
+                    e.Handled = true;
+                    await ChangeTrashSelection(true);
+                }
+                return;
+            }
             if (ctrl && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && key == Key.R) RestoreWindow();
             else if (key == Key.Delete && !ctrl && !alt) await DeleteSelected((Keyboard.Modifiers & ModifierKeys.Shift) != 0);
             else if (key == Key.F2 && !ctrl && !alt) await RenameSelected();
@@ -1268,8 +1694,6 @@ namespace WSLBox
             else if (ctrl && key == Key.L) await Configure();
             else if (ctrl && key == Key.D1) SetView("icons");
             else if (ctrl && key == Key.D2) SetView("list");
-            else if (alt && key == Key.Left) await HistoryNavigate(false);
-            else if (alt && key == Key.Right) await HistoryNavigate(true);
             else if (alt && key == Key.Home) await Home();
             else if ((alt && key == Key.Up) || key == Key.Back) await Up();
             else if (key == Key.F5 || (ctrl && key == Key.R)) await RefreshFolder(true);
@@ -1364,6 +1788,7 @@ namespace WSLBox
                 }
                 if (editor.RestoreFocus && IsActive) list.Focus();
             });
+            if (settings.WindowLayer == "bottom" && !IsActive) Activate();
             renameEditor = editor; dragOrigin = null; editor.Show(); return Done();
         }
         private static TextBlock FindFileLabel(DependencyObject root)
@@ -1380,6 +1805,7 @@ namespace WSLBox
         }
         private async Task NewFolder()
         {
+            if (showingTrash) return;
             if (busy || opening || !initialized || IsContextMenuOpen) return;
             string name = Dialogs.FileName(this, L10n.T("ui.new_folder"), L10n.T("ui.new_folder"), true);
             if (name != null) await NamedFileAction("mkdir", currentFolder, name);
@@ -1534,6 +1960,19 @@ namespace WSLBox
                 }
             }
             catch (Exception ex) { Report(ex); }
+        }
+        private async Task RevealTrashFolder()
+        {
+            if (busy || !initialized || closing) return;
+            WslClient client = wsl;
+            string distro = settings.Distro;
+            try
+            {
+                Reply reply = await client.Run(distro, "trash-folder", null);
+                if (!closing && showingTrash && client == wsl)
+                    Process.Start("explorer.exe", Paths.Quote(Paths.Unc(distro, reply.Path)));
+            }
+            catch (Exception ex) { if (!closing && showingTrash && client == wsl) Report(ex); }
         }
         private void Reveal()
         {

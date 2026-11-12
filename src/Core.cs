@@ -15,6 +15,7 @@ namespace WSLBox
     {
         [DataMember] public string Name;
         [DataMember] public string DisplayName;
+        [DataMember] public string TrashId;
         [DataMember] public string Path;
         [DataMember] public bool IsDirectory;
         [DataMember] public bool IsLink;
@@ -43,6 +44,7 @@ namespace WSLBox
     {
         [DataMember] public string Distro;
         [DataMember] public string Home;
+        [DataMember] public string[] Users;
         [DataMember] public string Path;
         [DataMember] public string Error;
         [DataMember] public string InputMethodWarning;
@@ -73,6 +75,7 @@ namespace WSLBox
     public sealed class Settings
     {
         [DataMember] public string Distro = "";
+        [DataMember(EmitDefaultValue = false)] public string LinuxUser;
         [DataMember] public string Folder = "";
         [DataMember] public int X = 100;
         [DataMember] public int Y = 100;
@@ -94,9 +97,18 @@ namespace WSLBox
         [DataMember] public bool Maximized;
         [DataMember] public string MaximizeReturnEdge = "";
         [DataMember] public bool? SnapToEdges = true;
+        [DataMember] public string WindowLayer = "bottom";
         [DataMember] public bool? ShowThumbnails = true;
         [DataMember] public bool ShowHidden;
-        [DataMember] public double BackgroundOpacity = 0.64;
+        [DataMember] public bool? ShowTrashTab = true;
+        private const double DefaultBackgroundOpacity = 0.64;
+        [DataMember] public double BackgroundOpacity = DefaultBackgroundOpacity;
+
+        [OnDeserializing]
+        private void SetDeserializationDefaults(StreamingContext context)
+        {
+            BackgroundOpacity = DefaultBackgroundOpacity;
+        }
 
         public void Normalize()
         {
@@ -105,7 +117,7 @@ namespace WSLBox
             if (Distro == null) Distro = "";
             if (Folder == null) Folder = "";
             if (ViewMode != "list") ViewMode = "icons";
-            if (!new[] { "all", "folders", "documents", "images", "archives", "other" }.Contains(Filter)) Filter = "all";
+            if (!new[] { "all", "folders", "shortcuts", "documents", "images", "videos", "audio", "archives", "other" }.Contains(Filter)) Filter = "all";
             if (!ShowThumbnails.HasValue) ShowThumbnails = true;
             if (IconSpacing != "compact" && IconSpacing != "roomy") IconSpacing = "standard";
             if (IconSize != 24 && IconSize != 42 && IconSize != 64) IconSize = 42;
@@ -113,7 +125,9 @@ namespace WSLBox
             if (EdgeLayout != "left" && EdgeLayout != "right") EdgeLayout = "";
             if (MaximizeReturnEdge != "left" && MaximizeReturnEdge != "right") MaximizeReturnEdge = "";
             if (!SnapToEdges.HasValue) SnapToEdges = true;
-            if (BackgroundOpacity < 0.15 || BackgroundOpacity > 0.95) BackgroundOpacity = 0.64;
+            if (WindowLayer != "top" && WindowLayer != "normal") WindowLayer = "bottom";
+            if (Double.IsNaN(BackgroundOpacity) || BackgroundOpacity < 0 || BackgroundOpacity > 1)
+                BackgroundOpacity = DefaultBackgroundOpacity;
             Width = Math.Max(280, Width); Height = Math.Max(180, Height);
             if (Bounds == null || !Bounds.IsValid)
                 Bounds = new SavedWindowBounds { Left = X, Top = Y, Width = Width, Height = Height };
@@ -289,7 +303,7 @@ namespace WSLBox
 
     public sealed class WslClient
     {
-        private readonly string script, scriptKey;
+        private readonly string script, scriptKey, linuxUser;
         internal const string Bootstrap = "import sys;n=int(sys.stdin.buffer.readline());exec(compile(sys.stdin.buffer.read(n),'<WSLBox>','exec'))";
         internal static void WriteSource(Stream input, string source)
         {
@@ -305,8 +319,13 @@ namespace WSLBox
         private static System.Threading.Timer idleTimer;
         private static int sweeping;
         private static readonly Dictionary<string, Task<Reply>> reads = new Dictionary<string, Task<Reply>>(StringComparer.Ordinal);
-        public WslClient(string backendFile)
+        public WslClient(string backendFile) : this(backendFile, null) { }
+
+        public WslClient(string backendFile, string user)
         {
+            linuxUser = user ?? "";
+            if (linuxUser.StartsWith("-", StringComparison.Ordinal) || linuxUser.Any(c => Char.IsWhiteSpace(c) || Char.IsControl(c) || c == '"' || c == '/' || c == '\\'))
+                throw new ArgumentException(L10n.T("ui.invalid_linux_user"));
             string runtimePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend.py");
             if (String.Equals(Path.GetFullPath(backendFile), Path.GetFullPath(runtimePath), StringComparison.OrdinalIgnoreCase))
             {
@@ -328,14 +347,15 @@ namespace WSLBox
         public Task<Reply> Run(string distro, string command, string path, bool showHidden = false)
         {
             if (command == "open") return Task.Run(() => Worker(distro).Open(path));
-            if (command == "open-trash") return Task.Run(() => Worker(distro).Request(command, path));
+            if (command == "open-trash" || command == "list-trash" || command == "open-trashed-file"
+                || command == "restore-trash" || command == "purge-trash") return Task.Run(() => Worker(distro).Request(command, path));
             if (command == "delete-permanently" || (command == "info" && String.IsNullOrWhiteSpace(distro)))
                 return RunOneShot(distro, command, path);
             string mode = command == "thumbnails" ? "serve-thumbnails" : "serve-metadata";
             bool readOnly = command == "list" || command == "list-icons" || command == "info"
-                || command == "folder-info" || command == "applications" || command == "thumbnails";
+                || command == "folder-info" || command == "applications" || command == "thumbnails" || command == "users" || command == "trash-folder";
             if (!readOnly) return Task.Run(() => Worker(distro, mode).Request(command, path));
-            string key = distro + "\n" + scriptKey + "\n" + command + "\n" + showHidden + "\n" + path;
+            string key = distro + "\n" + linuxUser + "\n" + scriptKey + "\n" + command + "\n" + showHidden + "\n" + path;
             lock (workerLock)
             {
                 if (workersClosing) throw new ObjectDisposedException("WslClient");
@@ -356,12 +376,12 @@ namespace WSLBox
         }
         private OpenWorker Worker(string distro, string mode = "serve-open")
         {
-            string key = (distro ?? "") + "\n" + mode + "\n" + scriptKey;
+            string key = (distro ?? "") + "\n" + linuxUser + "\n" + mode + "\n" + scriptKey;
             lock (workerLock)
             {
                 if (workersClosing) throw new ObjectDisposedException("WslClient");
                 OpenWorker worker;
-                if (!workers.TryGetValue(key, out worker)) { worker = new OpenWorker(distro, script, mode); workers.Add(key, worker); }
+                if (!workers.TryGetValue(key, out worker)) { worker = new OpenWorker(distro, script, mode, linuxUser); workers.Add(key, worker); }
                 if (mode != "serve-open" && idleTimer == null) idleTimer = new System.Threading.Timer(SweepIdleWorkers, null, 30000, 30000);
                 return worker;
             }
@@ -388,15 +408,20 @@ namespace WSLBox
             if (timer != null) timer.Dispose();
             foreach (OpenWorker worker in all) worker.Dispose();
         }
+        internal static string LaunchOptions(string distro, string user)
+        {
+            // WSL parses these options before forwarding arguments to Linux.
+            string distribution = distro ?? "";
+            if (distribution.Any(c => Char.IsWhiteSpace(c) || c == '"')) distribution = Paths.Quote(distribution);
+            string options = String.IsNullOrWhiteSpace(distro) ? "" : "--distribution " + distribution + " ";
+            if (!String.IsNullOrEmpty(user)) options += "--user " + user + " ";
+            return options;
+        }
+
         public Task<Reply> RunOneShot(string distro, string command, string path)
         {
             return Task.Run(() => {
-                // WSL parses its leading switches before forwarding Linux argv;
-                // unlike CRT argv parsing, it does not accept quoted switches.
-                string distroArgument = distro ?? "";
-                if (distroArgument.Any(c => Char.IsWhiteSpace(c) || c == '"')) distroArgument = Paths.Quote(distroArgument);
-                string arguments = String.IsNullOrWhiteSpace(distro) ? ""
-                    : "--distribution " + distroArgument + " ";
+                string arguments = LaunchOptions(distro, linuxUser);
                 string prefix = arguments + "--exec /usr/bin/python3 -X utf8 -c ";
                 string suffix = " " + Paths.Quote(command) + (path == null ? "" : " " + Paths.Quote(path));
                 arguments = prefix + Paths.Quote(Bootstrap) + suffix;
@@ -409,8 +434,11 @@ namespace WSLBox
                 {
                     var output = ReadBytes(process.StandardOutput.BaseStream);
                     var errors = ReadBytes(process.StandardError.BaseStream);
-                    try { WriteSource(process.StandardInput.BaseStream, script); process.StandardInput.Close(); }
-                    catch (IOException ex) { throw new IOException(L10n.T("ui.could_not_send_a_startup_request_to_wsl_check_that_the_distribut"), ex); }
+                    IOException inputError = null;
+                    try { WriteSource(process.StandardInput.BaseStream, script); }
+                    catch (IOException ex) { inputError = ex; }
+                    try { process.StandardInput.Close(); }
+                    catch (IOException ex) { if (inputError == null) inputError = ex; }
                     bool mutation = command == "trash" || command == "delete-permanently";
                     if (!process.WaitForExit(mutation ? 120000 : 20000))
                     {
@@ -420,6 +448,14 @@ namespace WSLBox
                     if (!Task.WaitAll(new Task[] { output, errors }, 5000))
                         throw new IOException(L10n.T("ui.wsl_output_did_not_close_normally"));
                     string stdout = Decode(output.Result), stderr = Decode(errors.Result);
+                    if (inputError != null)
+                    {
+                        string detail = String.Join("\n", new[] { stderr.Trim(), stdout.Trim() }.Where(value => value.Length > 0));
+                        string message = L10n.T("ui.could_not_send_a_startup_request_to_wsl_check_that_the_distribut")
+                            + "\n\n" + inputError.Message + " (0x" + inputError.HResult.ToString("X8") + ")";
+                        if (detail.Length > 0) message += "\n" + detail;
+                        throw new IOException(message, inputError);
+                    }
                     Reply reply;
                     try { reply = Json.Read<Reply>(stdout.Trim()); }
                     catch (Exception ex)

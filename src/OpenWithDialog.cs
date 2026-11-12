@@ -31,7 +31,7 @@ namespace WSLBox
         private readonly TextBox search = new TextBox { Padding = new Thickness(7), Margin = new Thickness(0, 8, 0, 8) };
         private readonly CheckBox others = new CheckBox { Content = L10n.T("ui.show_other_linux_applications"), Margin = new Thickness(0, 8, 0, 8) };
         private readonly CheckBox always = new CheckBox { Content = L10n.T("ui.use_as_the_linux_default_for_this_file_type"), Margin = new Thickness(0, 12, 0, 12) };
-        private readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray };
+        private readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Theme.PanelMuted };
         private readonly Button ok = new Button { Content = L10n.T("ui.open"), IsDefault = true, IsEnabled = false, MinWidth = 80, Padding = new Thickness(12, 7, 12, 7) };
         private bool closed;
         private LinuxApplication[] apps = new LinuxApplication[0];
@@ -42,11 +42,11 @@ namespace WSLBox
             Title = L10n.T("ui.linux_open_with"); Owner = owner; Icon = Branding.Image;
             Width = 540; Height = 540; MinWidth = 420; MinHeight = 380;
             ShowInTaskbar = false; WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            FontFamily = new FontFamily("Microsoft YaHei UI"); FontSize = 13; Background = Brushes.White; Foreground = Brushes.Black;
+            Theme.ApplyPanelTheme(this);
             var layout = new DockPanel { Margin = new Thickness(20) };
             var heading = new StackPanel();
             heading.Children.Add(new TextBlock { Text = L10n.T("ui.choose_a_linux_app_for") + System.IO.Path.GetFileName(path), TextWrapping = TextWrapping.Wrap, FontSize = 15 });
-            heading.Children.Add(new TextBlock { Text = L10n.T("ui.search_application_names_or_commands"), Foreground = Brushes.DimGray, Margin = new Thickness(0, 8, 0, 0) });
+            heading.Children.Add(new TextBlock { Text = L10n.T("ui.search_application_names_or_commands"), Foreground = Theme.PanelMuted, Margin = new Thickness(0, 8, 0, 0) });
             search.ToolTip = L10n.T("ui.search_application_names_or_commands"); heading.Children.Add(search); heading.Children.Add(others);
             DockPanel.SetDock(heading, Dock.Top); layout.Children.Add(heading);
             var footer = new StackPanel(); footer.Children.Add(status); footer.Children.Add(always);
@@ -92,7 +92,7 @@ namespace WSLBox
                     status.Text = L10n.T("ui.file_type") + reply.ContentType;
                     Filter(); search.Focus();
                 }
-                catch (Exception ex) { if (!closed) { status.Text = ex.Message; status.Foreground = Brushes.Firebrick; } }
+                catch (Exception ex) { if (!closed) { status.Text = ex.Message; status.Foreground = Theme.PanelError; } }
             };
         }
         private static ListBoxItem FindItem(DependencyObject child)

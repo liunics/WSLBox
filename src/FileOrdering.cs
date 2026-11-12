@@ -13,7 +13,7 @@ namespace WSLBox
             for (int index = 0; index < first.Length; index++)
             {
                 Entry a = first[index], b = second[index];
-                if (a.Name != b.Name || a.DisplayName != b.DisplayName || a.Path != b.Path
+                if (a.Name != b.Name || a.DisplayName != b.DisplayName || a.Path != b.Path || a.TrashId != b.TrashId
                     || a.IsDirectory != b.IsDirectory || a.IsLink != b.IsLink
                     || a.ContentType != b.ContentType || a.IconKey != b.IconKey
                     || a.Size != b.Size || a.Modified != b.Modified || a.CanThumbnail != b.CanThumbnail) return false;

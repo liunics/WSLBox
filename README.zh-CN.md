@@ -10,7 +10,7 @@ WSLBox 是专为 WSL2 文件夹设计的 Windows 桌面盒子。在透明盒子�
 
 ## 下载与运行
 
-下载 **[WSLBox-v1.3.0.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
+下载 **[WSLBox-v1.4.0.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
 
 打开“文件夹设置”，选择 WSL 发行版和要展示的文件夹，并为盒子设置名称。
 
@@ -100,7 +100,7 @@ WSLBox 支持所选 Linux 发行版中已配置的 Fcitx、Fcitx5 和 IBus。在
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.3.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.4.0.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 

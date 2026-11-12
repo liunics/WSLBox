@@ -2,6 +2,15 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.4.0
+
+- Add an optional Trash tab with restore and permanent deletion, and share navigation history with ordinary folders.
+- Choose the WSL user per box or use the distribution’s default user.
+- Show shortcuts, videos and audio as separate categories when matching files exist.
+- Add per-box window stacking modes: keep at bottom, normal and always on top.
+- Adjust background transparency from 0% to 100% with a slider and one-percentage-point controls.
+- Use Windows system styling for box menus and settings dialogs.
+
 ## 1.3.0
 
 - Add compact, standard and roomy icon spacing per box alongside the three icon sizes.

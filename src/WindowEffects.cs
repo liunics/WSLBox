@@ -13,6 +13,10 @@ namespace WSLBox
         private static extern bool SetForegroundWindow(IntPtr window);
         [DllImport("user32.dll")]
         private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+        private static extern int GetWindowLong(IntPtr window, int index);
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+        private static extern int SetWindowLong(IntPtr window, int index, int value);
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
@@ -49,16 +53,34 @@ namespace WSLBox
             int disabled = 1;
             DwmSetWindowAttribute(handle, 3, ref disabled, sizeof(int));
         }
+        internal static void SetMouseActivation(Window window, bool enabled)
+        {
+            const int extendedStyle = -20, noActivate = 0x08000000;
+            IntPtr handle = new WindowInteropHelper(window).Handle;
+            if (handle == IntPtr.Zero) return;
+            int style = GetWindowLong(handle, extendedStyle);
+            int updated = enabled ? style & ~noActivate : style | noActivate;
+            if (updated != style) SetWindowLong(handle, extendedStyle, updated);
+        }
+
+        internal static void SendToBottom(Window window)
+        {
+            const uint keepGeometryAndFocus = 0x0013; // SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+            IntPtr handle = new WindowInteropHelper(window).Handle;
+            if (handle != IntPtr.Zero)
+                SetWindowPos(handle, new IntPtr(1), 0, 0, 0, 0, keepGeometryAndFocus);
+        }
+
         internal static void ShowInBackground(Window window)
         {
             IntPtr foreground = GetForegroundWindow();
             // WPF/Win32 cannot show a maximized window without activation. Keep
-            // the maximized state valid, place it below apps, and return focus
+            // the maximized state valid, respect the layer, and return focus
             // to the previous foreground window in the same synchronous operation.
             window.ShowActivated = window.WindowState == WindowState.Maximized;
             window.Show();
             IntPtr handle = new WindowInteropHelper(window).Handle;
-            SetWindowPos(handle, new IntPtr(1), 0, 0, 0, 0, 0x0013);
+            if (!window.Topmost) SendToBottom(window);
             if (foreground != IntPtr.Zero && foreground != handle && GetForegroundWindow() == handle)
                 SetForegroundWindow(foreground);
         }

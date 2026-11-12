@@ -1,4 +1,20 @@
 {
+  "ui.default_linux_user": {
+    "zh-CN": "发行版默认用户",
+    "en-US": "Distribution default"
+  },
+  "ui.linux_user": {
+    "zh-CN": "Linux 用户",
+    "en-US": "Linux user"
+  },
+  "ui.invalid_linux_user": {
+    "zh-CN": "Linux 用户名无效。",
+    "en-US": "Invalid Linux user name."
+  },
+  "backend.trash_folder_missing": {
+    "zh-CN": "此 Linux 用户的回收站目录尚未创建。",
+    "en-US": "This Linux user’s Trash directory has not been created."
+  },
   "ui.browse": {
     "zh-CN": "浏览",
     "en-US": "Browse"
@@ -411,6 +427,35 @@
     "zh-CN": "压缩",
     "en-US": "Archives"
   },
+  "ui.shortcuts": {
+    "zh-CN": "快捷方式",
+    "en-US": "Shortcuts"
+  },
+  "ui.videos": {
+    "zh-CN": "视频",
+    "en-US": "Videos"
+  },
+  "ui.audio": {
+    "zh-CN": "音频",
+    "en-US": "Audio"
+  },
+  "ui.trash_loading": {
+    "zh-CN": "正在读取回收站…",
+    "en-US": "Loading trash…"
+  },
+  "ui.trash_empty": {
+    "zh-CN": "回收站为空",
+    "en-US": "Trash is empty"
+  },
+  "ui.show_trash_tab": {"zh-CN": "显示回收站标签", "en-US": "Show Trash tab"},
+  "ui.trash_restore_all": {"zh-CN": "全部还原", "en-US": "Restore all"},
+  "ui.trash_purge_all": {"zh-CN": "清空回收站", "en-US": "Empty Trash"},
+  "ui.trash_confirm_purge_all": {"zh-CN": "永久删除回收站中的全部 {0} 项？此操作无法撤销。", "en-US": "Permanently delete all {0} item(s) from Trash? This cannot be undone."},
+  "ui.trash_confirm_restore_all": {"zh-CN": "将回收站中的全部 {0} 项还原到原位置？", "en-US": "Restore all {0} item(s) in Trash to their original locations?"},
+  "ui.trash_tab": {
+    "zh-CN": "回收站",
+    "en-US": "Trash"
+  },
   "ui.other": {
     "zh-CN": "其它",
     "en-US": "Other"
@@ -459,13 +504,33 @@
     "zh-CN": "列表",
     "en-US": "List"
   },
+  "ui.window_layer": {
+    "zh-CN": "窗口层级",
+    "en-US": "Window stacking"
+  },
+  "ui.window_layer_top": {
+    "zh-CN": "置顶",
+    "en-US": "Always on top"
+  },
+  "ui.window_layer_bottom": {
+    "zh-CN": "置底",
+    "en-US": "Keep at bottom"
+  },
+  "ui.window_layer_normal": {
+    "zh-CN": "普通",
+    "en-US": "Normal"
+  },
+  "ui.increase_transparency": {
+    "zh-CN": "增加透明度",
+    "en-US": "Increase transparency"
+  },
+  "ui.decrease_transparency": {
+    "zh-CN": "降低透明度",
+    "en-US": "Decrease transparency"
+  },
   "ui.background_opacity": {
     "zh-CN": "背景透明度",
-    "en-US": "Background opacity"
-  },
-  "ui.background_opacity_3bc015": {
-    "zh-CN": "背景不透明度 ",
-    "en-US": "Background opacity "
+    "en-US": "Background transparency"
   },
   "ui.restore_window_ctrl_shift_r_2d0a09": {
     "zh-CN": "还原窗口大小   Ctrl+Shift+R",
@@ -1165,7 +1230,7 @@
   },
   "help.notes": {
     "zh-CN": "• 吸附阈值约为 12 个逻辑像素，在菜单中可统一关闭屏幕及盒子边缘吸附。\n• 鼠标触到屏幕顶部后松开可最大化，左右边缘可切换半屏；与窗口边缘吸附独立。\n• 进入子目录不会修改设置的根目录；重新打开盒子从设置目录开始。\n• 菜单中可打开 Linux 回收站、选择 Linux 打开方式、调整背景透明度。\n• 每个盒子分别保存文件夹、视图、排序、位置、透明度和收起状态；语言设置对全部盒子生效。\n• 开机自启为全局选项，可从托盘或盒子菜单设置。\n• 开启“悬停时临时展开”后，移入收起的盒子展开，移出自动收起。",
-    "en-US": "• Magnetism uses a threshold of about 12 logical pixels. Its menu switch controls screen-edge and box-edge snapping together.\n• Release the pointer at the top screen edge to maximize, or at a side edge for half-screen layout. This is independent of edge magnetism.\n• Browsing subfolders does not change the configured root. Reopening starts at that root.\n• Use the menu for Linux Trash, Linux Open With, and background opacity.\n• Each box saves its own folder, view, sorting, position, opacity and collapsed state. Language is global.\n• Start at login is a global option in the tray or box menu.\n• Enable Temporarily expand on hover to reveal a collapsed box while the pointer is inside it."
+    "en-US": "• Magnetism uses a threshold of about 12 logical pixels. Its menu switch controls screen-edge and box-edge snapping together.\n• Release the pointer at the top screen edge to maximize, or at a side edge for half-screen layout. This is independent of edge magnetism.\n• Browsing subfolders does not change the configured root. Reopening starts at that root.\n• Use the menu for Linux Trash, Linux Open With, and background transparency.\n• Each box saves its own folder, view, sorting, position, opacity and collapsed state. Language is global.\n• Start at login is a global option in the tray or box menu.\n• Enable Temporarily expand on hover to reveal a collapsed box while the pointer is inside it."
   },
   "ui.show_hidden": {
     "zh-CN": "显示隐藏文件",
@@ -1222,5 +1287,29 @@
   "ui.clipboard_busy": {
     "zh-CN": "剪贴板正被占用，请稍后重试。",
     "en-US": "The clipboard is busy. Try again shortly."
+  },
+  "ui.trash_parent": {
+    "zh-CN": "上一级",
+    "en-US": "Parent folder"
+  },
+  "ui.trash_restore": {
+    "zh-CN": "还原",
+    "en-US": "Restore"
+  },
+  "ui.trash_confirm_purge": {
+    "zh-CN": "永久删除回收站中选中的 {0} 项？",
+    "en-US": "Permanently delete {0} selected item(s) from Trash?"
+  },
+  "files.restored_count": {
+    "zh-CN": "已还原 {0} 项",
+    "en-US": "Restored {0} item(s)"
+  },
+  "backend.trash_original_missing": {
+    "zh-CN": "无法确定原位置，项目已保留在回收站。",
+    "en-US": "The original location is unavailable. The item remains in Trash."
+  },
+  "backend.trash_change_failed": {
+    "zh-CN": "回收站操作未完成。",
+    "en-US": "The Trash operation did not complete."
   }
 }

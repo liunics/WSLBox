@@ -183,11 +183,11 @@ namespace WSLBox
         {
             if (desktopHidden.Count > 0) ShowAll();
             Settings original = owner == null ? new Settings() : owner.Configuration;
-            var dialog = new ConfigForm(original.Distro, owner == null ? original.Folder : owner.CurrentFolder, "");
+            var dialog = new ConfigForm(original.Distro, owner == null ? original.Folder : owner.CurrentFolder, "", original.ShowTrashTab != false, original.LinuxUser);
             if (owner != null) dialog.Owner = owner;
             if (dialog.ShowDialog() != true) return;
             var box = new Settings {
-                Distro = dialog.Distro, Folder = dialog.Folder, Title = dialog.BoxTitle,
+                Distro = dialog.Distro, LinuxUser = dialog.LinuxUser, Folder = dialog.Folder, Title = dialog.BoxTitle, ShowTrashTab = dialog.ShowTrashTab,
                 X = original.X + 36, Y = original.Y + 36, Width = original.Width, Height = original.Height,
                 Bounds = original.Bounds == null ? null : new SavedWindowBounds { Left = original.Bounds.Left + 36, Top = original.Bounds.Top + 36, Width = original.Bounds.Width, Height = original.Bounds.Height },
                 BackgroundOpacity = original.BackgroundOpacity, ViewMode = original.ViewMode, IconSize = original.IconSize, IconSpacing = original.IconSpacing,
