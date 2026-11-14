@@ -223,7 +223,7 @@ class LinuxIcons:
         except (ImportError, ValueError):
             pass
 
-    def describe(self, path, original_name=None):
+    def describe(self, path, original_name=None, defer_thumbnail=False):
         if self.gio is None:
             return {}
         try:
@@ -252,7 +252,7 @@ class LinuxIcons:
             key, pending = None, False
             cache = self.thumbnail_cache
             if cache is not None and not os.path.isdir(path) and not is_launcher:
-                pix = cache.cached(path)
+                pix = None if defer_thumbnail else cache.cached(path)
                 if pix is not None:
                     key = self.encode_pixbuf(pix, "thumb", link)
                 if key is None:
@@ -323,29 +323,56 @@ def folder_path(value):
     return os.path.normpath(value)
 
 
-def list_folder(value, thumbnails=True, show_hidden=False):
-    path = folder_path(value)
-    entries = []
-    icons = LinuxIcons(thumbnails)
+def scan_folder(path, show_hidden):
+    entries = {}
     with os.scandir(path) as scan:
         for item in scan:
             if not show_hidden and item.name.startswith("."):
                 continue
+            signature = None
             try:
                 is_dir = item.is_dir()
+                source = item.stat(follow_symlinks=False)
+                signature = (source.st_dev, source.st_ino, source.st_mode,
+                             source.st_size, source.st_mtime_ns, source.st_ctime_ns)
+                if item.is_symlink():
+                    try:
+                        target = item.stat()
+                        signature += (target.st_ino, target.st_mode, target.st_size,
+                                      target.st_mtime_ns, target.st_ctime_ns)
+                    except OSError:
+                        pass
             except OSError:
                 is_dir = False
             entry = {"Name": item.name, "Path": item.path,
-                     "IsDirectory": is_dir, "IsLink": item.is_symlink()}
-            try:
-                stat = item.stat(follow_symlinks=False)
-                entry.update(Size=stat.st_size, Modified=stat.st_mtime_ns)
-            except OSError:
-                entry.update(Size=0, Modified=0)
-            entry.update(icons.describe(item.path))
-            entries.append(entry)
-    entries.sort(key=lambda item: (not item["IsDirectory"], item["Name"].casefold(), item["Name"]))
-    return {"Path": path, "Entries": entries, "Icons": list(icons.images.values())}
+                     "IsDirectory": is_dir, "IsLink": item.is_symlink(),
+                     "Size": signature[3] if signature else 0,
+                     "Modified": signature[4] if signature else 0}
+            entries[item.path] = (signature, entry)
+    return entries
+
+
+def list_folder(value, thumbnails=True, show_hidden=False, previous=None, revision=None):
+    path = folder_path(value)
+    scanned = scan_folder(path, show_hidden)
+    signatures = {name: signature for name, (signature, _) in scanned.items()}
+    changes = [entry for name, (signature, entry) in scanned.items()
+               if previous is None or signature is None or name not in previous or previous[name] != signature]
+    if changes:
+        icons = LinuxIcons(thumbnails)
+        for entry in changes:
+            entry.update(icons.describe(entry["Path"], defer_thumbnail=revision is not None))
+        images = list(icons.images.values())
+    else:
+        images = []
+    changes.sort(key=lambda item: (not item["IsDirectory"], item["Name"].casefold(), item["Name"]))
+    reply = {"Path": path, "Entries": changes, "Icons": images}
+    if previous is not None:
+        reply["RemovedPaths"] = list(previous.keys() - scanned.keys())
+    if revision is not None:
+        reply["Revision"] = revision
+        return reply, signatures
+    return reply
 
 
 def thumbnail_batch(value):
@@ -802,7 +829,13 @@ def main(argv, show_hidden=False):
         return {"Users": sorted(names)}
     if command == "trash-folder":
         path = os.path.join(home_trash_root(), "files")
-        if not os.path.isdir(path):
+        if len(argv) == 2:
+            from gi.repository import Gio
+            kind, parts, item = trash_location(argv[1])
+            if item.query_file_type(Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None) != Gio.FileType.DIRECTORY:
+                raise ValueError(tr("backend.invalid_file_operation_request"))
+            path = trash_local_path(kind, parts, item)
+        if not path or not os.path.isdir(path):
             raise ValueError(tr("backend.trash_folder_missing"))
         return {"Path": path}
     if command == "info":
@@ -845,12 +878,14 @@ def serve_open():
             if not isinstance(request, dict):
                 raise ValueError("Invalid open request")
             command = request.get("Command", "open")
-            if command in ("open-trash", "list-trash", "open-trashed-file", "restore-trash", "purge-trash"):
+            if command in ("open-trash", "list-trash", "trash-folder", "open-trashed-file", "restore-trash", "purge-trash"):
                 path = request.get("Path")
                 if command == "open-trash":
                     response = open_trash()
                 elif command == "list-trash":
                     response = list_trash(path)
+                elif command == "trash-folder":
+                    response = main([command, path])
                 elif command == "open-trashed-file":
                     response = open_trashed_file(path)
                 else:
@@ -877,6 +912,9 @@ def serve_metadata(thumbnails=False):
     """Warm file operations; never activate GUI apps on the icon environment."""
     from gi.repository import GLib
     allowed = {"thumbnails"} if thumbnails else {"info", "folder-info", "list", "list-icons", "applications", "rename", "mkdir", "trash", "users", "trash-folder"}
+    import uuid
+    snapshots = {}
+    requests = 0
     print(json.dumps({"Ready": True, "Pid": os.getpid()}), flush=True)
     for line in sys.stdin:
         line = line.lstrip("\ufeff")
@@ -896,7 +934,24 @@ def serve_metadata(thumbnails=False):
             show_hidden = request.get("ShowHidden", False)
             if not isinstance(show_hidden, bool):
                 raise ValueError("Invalid hidden-files preference")
-            response = main([command] + ([value] if value is not None else []), show_hidden=show_hidden)
+            if command in ("list", "list-icons"):
+                key = (command, folder_path(value), show_hidden)
+                token, saved_signatures = snapshots.get(key, (None, None))
+                previous = saved_signatures
+                # Periodically reread presentation metadata for theme or association changes.
+                requests += 1
+                if not token or token != request.get("Revision") or requests % 24 == 0:
+                    previous = None
+                revision = uuid.uuid4().hex
+                response, signatures = list_folder(value, command == "list", show_hidden, previous, revision)
+                if token and signatures == saved_signatures:
+                    revision = response["Revision"] = token
+                snapshots.pop(key, None)
+                if len(snapshots) >= 16:
+                    snapshots.pop(next(iter(snapshots)))
+                snapshots[key] = (revision, signatures)
+            else:
+                response = main([command] + ([value] if value is not None else []), show_hidden=show_hidden)
         except Exception as exc:
             response = {"Error": str(exc)}
         print(json.dumps(response, ensure_ascii=False), flush=True)

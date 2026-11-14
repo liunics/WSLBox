@@ -126,20 +126,19 @@ namespace WSLBox
             menu.Items.Add(desktopOption);
             var startup = new Forms.ToolStripMenuItem(L10n.T("startup.label")) { Checked = StartupRegistration.IsEnabled,
                 ToolTipText = L10n.T("startup.hint") };
-            startup.Click += (s, e) => { SetStartAtLogin(!StartupRegistration.IsEnabled); startup.Checked = StartupRegistration.IsEnabled; };
+            startup.Click += (s, e) => { startup.Checked = ToggleStartAtLogin(); };
             menu.Opening += (s, e) => startup.Checked = StartupRegistration.IsEnabled;
             menu.Items.Add(startup);
             menu.Items.Add(L10n.T("ui.new_box_5cc522"), null, (s, e) => CreateBox(windows.FirstOrDefault()));
-            var language = new Forms.ToolStripMenuItem("Language / 语言");
-            foreach (var choice in L10n.Choices)
+            var language = new Forms.ToolStripMenuItem(L10n.LanguageMenuLabel);
+            Action refreshLanguage = L10n.BindLanguageChoices(() => LanguagePreference, SetLanguage, (label, select) =>
             {
-                string code = choice.Key;
-                var option = new Forms.ToolStripMenuItem(choice.Value) { CheckOnClick = false, Tag = code };
-                option.Click += (s,e) => SetLanguage(code); language.DropDownItems.Add(option);
-            }
-            language.DropDownOpening += (s,e) => {
-                foreach (Forms.ToolStripMenuItem item in language.DropDownItems) item.Checked = (string)item.Tag == LanguagePreference;
-            };
+                var option = new Forms.ToolStripMenuItem(label);
+                option.Click += (s, e) => select();
+                language.DropDownItems.Add(option);
+                return value => option.Checked = value;
+            });
+            language.DropDownOpening += (s, e) => refreshLanguage();
             menu.Items.Add(language);
             menu.Items.Add(new Forms.ToolStripSeparator());
             menu.Items.Add(L10n.T("ui.help_and_shortcuts"), null, (s, e) => Dialogs.Help(windows.FirstOrDefault(w => w.IsVisible)));
@@ -160,6 +159,11 @@ namespace WSLBox
         {
             return windows.Where(window => window != moving && window.IsVisible && !window.IsClosing
                 && window.WindowState != WindowState.Minimized).Select(window => window.BoundsIn(moving)).ToArray();
+        }
+        public bool ToggleStartAtLogin()
+        {
+            SetStartAtLogin(!StartupRegistration.IsEnabled);
+            return StartupRegistration.IsEnabled;
         }
         public void SetStartAtLogin(bool enabled)
         {
@@ -184,7 +188,7 @@ namespace WSLBox
             if (desktopHidden.Count > 0) ShowAll();
             Settings original = owner == null ? new Settings() : owner.Configuration;
             var dialog = new ConfigForm(original.Distro, owner == null ? original.Folder : owner.CurrentFolder, "", original.ShowTrashTab != false, original.LinuxUser);
-            if (owner != null) dialog.Owner = owner;
+            Dialogs.PlaceDialog(dialog, owner);
             if (dialog.ShowDialog() != true) return;
             var box = new Settings {
                 Distro = dialog.Distro, LinuxUser = dialog.LinuxUser, Folder = dialog.Folder, Title = dialog.BoxTitle, ShowTrashTab = dialog.ShowTrashTab,

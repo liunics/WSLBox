@@ -38,7 +38,7 @@
   });
   setLanguage(language);
   (async function () {
-    let config = { repository: 'liunics/WSLBox', version: '1.4.0' };
+    let config = { repository: 'liunics/WSLBox', version: '1.5.0' };
     try { const result = await fetch('site-config.json'); if (result.ok) config = { ...config, ...await result.json() }; } catch (_) {}
     const repo = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(config.repository) ? config.repository : 'liunics/WSLBox';
     const base = `https://github.com/${repo}`;

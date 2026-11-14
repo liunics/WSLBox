@@ -8,6 +8,33 @@ using System.Windows.Interop;
 
 namespace WSLBox
 {
+    [ComVisible(true), Guid("00000121-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface INativeDropSource
+    {
+        [PreserveSig] int QueryContinueDrag([MarshalAs(UnmanagedType.Bool)] bool escape, uint keys);
+        [PreserveSig] int GiveFeedback(uint effect);
+    }
+
+    [ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+    public sealed class NativeDropSource : INativeDropSource
+    {
+        private readonly Action<DragDropEffects> feedback;
+
+        internal NativeDropSource(Action<DragDropEffects> feedback) { this.feedback = feedback; }
+
+        public int QueryContinueDrag(bool escape, uint keys)
+        {
+            if (escape) return 0x00040101; // DRAGDROP_S_CANCEL
+            return (keys & 1) == 0 ? 0x00040100 : 0; // DRAGDROP_S_DROP or continue
+        }
+
+        public int GiveFeedback(uint effect)
+        {
+            feedback((DragDropEffects)(effect & 7)); // Ignore the OLE scroll flag.
+            return 0x00040102; // DRAGDROP_S_USEDEFAULTCURSORS
+        }
+    }
+
     [ComImport, Guid("000214E6-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     internal interface IShellFolder
     {
@@ -100,10 +127,6 @@ namespace WSLBox
         private static extern int GetMenuString(IntPtr menu, uint position, StringBuilder text, int maximum, uint flags);
         [DllImport("user32.dll")] private static extern uint GetMenuItemID(IntPtr menu, int position);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool ModifyMenu(IntPtr menu, uint item, uint flags, UIntPtr id, string text);
-        [DllImport("user32.dll")]
-        private static extern bool CheckMenuRadioItem(IntPtr menu, uint first, uint last, uint selected, uint flags);
-        [DllImport("user32.dll")]
-        private static extern uint CheckMenuItem(IntPtr menu, uint command, uint flags);
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "InsertMenuW", ExactSpelling = true)]
         [return: MarshalAs(UnmanagedType.Bool)] private static extern bool InsertMenuNative(IntPtr menu, uint position, uint flags, UIntPtr id, string label);
         private static bool InsertMenu(IntPtr menu, uint position, uint flags, UIntPtr id, string label)
@@ -165,23 +188,68 @@ namespace WSLBox
             if (pidl == IntPtr.Zero) throw new IOException(L10n.T("ui.windows_cannot_resolve_this_path"));
             pidls.Add(pidl); return pidl;
         }
+        private IntPtr SelectionObject(IntPtr owner, string[] paths, Guid interfaceId)
+        {
+            Guid folderId = typeof(IShellFolder).GUID;
+            IntPtr first = Parse(paths[0]), child;
+            SHBindToParent(first, ref folderId, out folder, out child);
+            var children = new IntPtr[paths.Length]; children[0] = child;
+            string parent = Path.GetDirectoryName(paths[0]);
+            for (int i = 1; i < paths.Length; i++)
+            {
+                if (!Paths.Same(parent, Path.GetDirectoryName(paths[i]))) throw new IOException(L10n.T("ui.select_items_from_the_same_folder_to_use_the_native_menu"));
+                children[i] = ILFindLastID(Parse(paths[i]));
+            }
+            IntPtr raw;
+            folder.GetUIObjectOf(owner, (uint)children.Length, children, ref interfaceId, IntPtr.Zero, out raw);
+            return raw;
+        }
+
+        [DllImport("shell32.dll")]
+        private static extern int SHDoDragDrop(IntPtr owner, IntPtr data, [MarshalAs(UnmanagedType.Interface)] INativeDropSource source, uint allowed, out uint effect);
+
+        public static DragDropEffects Drag(Window window, string[] paths, Action<DragDropEffects> feedback)
+        {
+            IntPtr owner = new WindowInteropHelper(window).Handle;
+            using (var shell = new ShellContextMenu())
+            {
+                IntPtr data = shell.SelectionObject(owner, paths, typeof(System.Runtime.InteropServices.ComTypes.IDataObject).GUID);
+                try
+                {
+                    uint effect;
+                    int result = SHDoDragDrop(owner, data, new NativeDropSource(feedback),
+                        (uint)(DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link), out effect);
+                    Marshal.ThrowExceptionForHR(result);
+                    return result == 0x00040100 ? (DragDropEffects)effect : DragDropEffects.None;
+                }
+                finally { Marshal.Release(data); }
+            }
+        }
+
+        public static void CopyToClipboard(Window window, string[] paths, bool move)
+        {
+            IntPtr owner = new WindowInteropHelper(window).Handle;
+            using (var shell = new ShellContextMenu())
+            {
+                IntPtr raw = shell.SelectionObject(owner, paths, typeof(IContextMenu).GUID);
+                try { shell.context = (IContextMenu)Marshal.GetObjectForIUnknown(raw); }
+                finally { Marshal.Release(raw); }
+                IntPtr verb = Marshal.StringToCoTaskMemAnsi(move ? "cut" : "copy");
+                try
+                {
+                    var command = new InvokeCommandInfo { Size = Marshal.SizeOf(typeof(InvokeCommandInfo)),
+                        Owner = owner, Verb = verb, Show = 1 };
+                    shell.context.InvokeCommand(ref command);
+                }
+                finally { Marshal.FreeCoTaskMem(verb); }
+            }
+        }
+
         private int Build(IntPtr owner, string[] paths, string directory)
         {
             Guid folderId = typeof(IShellFolder).GUID, menuId = typeof(IContextMenu).GUID;
             IntPtr raw;
-            if (paths.Length > 0)
-            {
-                IntPtr first = Parse(paths[0]), child;
-                SHBindToParent(first, ref folderId, out folder, out child);
-                var children = new IntPtr[paths.Length]; children[0] = child;
-                string parent = Path.GetDirectoryName(paths[0]);
-                for (int i = 1; i < paths.Length; i++)
-                {
-                    if (!Paths.Same(parent, Path.GetDirectoryName(paths[i]))) throw new IOException(L10n.T("ui.select_items_from_the_same_folder_to_use_the_native_menu"));
-                    children[i] = ILFindLastID(Parse(paths[i]));
-                }
-                folder.GetUIObjectOf(owner, (uint)children.Length, children, ref menuId, IntPtr.Zero, out raw);
-            }
+            if (paths.Length > 0) raw = SelectionObject(owner, paths, menuId);
             else
             {
                 IntPtr full = Parse(directory), child;
@@ -266,109 +334,40 @@ namespace WSLBox
                 return labels.ToArray();
             }
         }
-        public static ShellMenuAction Show(Window window, Point screen, string[] paths, string directory, Settings settings)
+        public static ShellMenuAction Show(Window window, Point screen, string[] paths, string directory)
         {
-            using (var native = new ShellContextMenu()) return native.ShowCore(window, screen, paths, directory, settings);
+            using (var native = new ShellContextMenu()) return native.ShowCore(window, screen, paths, directory);
         }
-        private void AddOption(IntPtr popup, ShellMenuAction action, string text)
+        private void OrganizeMenus(int selected)
         {
-            if (!InsertMenu(popup, (uint)GetMenuItemCount(popup), 0x400, (UIntPtr)(Custom + (uint)action), text))
-                throw new IOException(L10n.T("ui.could_not_create_the_view_or_sort_menu"));
-        }
-        private void AddPopup(uint position, string name, IntPtr popup)
-        {
-            UIntPtr handle = IntPtr.Size == 8 ? new UIntPtr((ulong)popup.ToInt64()) : new UIntPtr((uint)popup.ToInt32());
-            if (!InsertMenu(menu, position, 0x400 | 0x10, handle, name))
-            { DestroyMenu(popup); throw new IOException(L10n.T("ui.could_not_insert_a_menu_item")); }
-        }
-        private void AddViewMenus(Settings settings)
-        {
-            IntPtr view = CreatePopupMenu();
-            AddPopup(0, L10n.T("ui.view_v"), view);
-            AddOption(view, ShellMenuAction.LargeIcons, L10n.T("ui.large_icons_r"));
-            AddOption(view, ShellMenuAction.MediumIcons, L10n.T("ui.medium_icons_m"));
-            AddOption(view, ShellMenuAction.SmallIcons, L10n.T("ui.small_icons_n"));
-            AddOption(view, ShellMenuAction.List, L10n.T("ui.list_l"));
-            InsertMenu(view, 4, 0x400 | 0x800, UIntPtr.Zero, null);
-            AddOption(view, ShellMenuAction.ToggleThumbnails, L10n.T("ui.show_thumbnails"));
-            CheckMenuItem(view, Custom + 14, settings.ShowThumbnails != false ? 8u : 0u);
-            AddOption(view, ShellMenuAction.ToggleHidden, L10n.T("ui.show_hidden"));
-            CheckMenuItem(view, Custom + 15, settings.ShowHidden ? 8u : 0u);
-            uint currentView = (uint)(settings.ViewMode == "list" ? ShellMenuAction.List :
-                settings.IconSize == 64 ? ShellMenuAction.LargeIcons : settings.IconSize == 24 ? ShellMenuAction.SmallIcons : ShellMenuAction.MediumIcons);
-            CheckMenuRadioItem(view, Custom + 10, Custom + 13, Custom + currentView, 0);
-            IntPtr sort = CreatePopupMenu(); AddPopup(1, L10n.T("ui.sort_by_o"), sort);
-            AddOption(sort, ShellMenuAction.SortName, L10n.T("ui.name")); AddOption(sort, ShellMenuAction.SortSize, L10n.T("ui.size"));
-            AddOption(sort, ShellMenuAction.SortType, L10n.T("ui.type")); AddOption(sort, ShellMenuAction.SortModified, L10n.T("ui.date_modified"));
-            InsertMenu(sort, 4, 0x400 | 0x800, UIntPtr.Zero, null);
-            AddOption(sort, ShellMenuAction.Ascending, L10n.T("ui.ascending")); AddOption(sort, ShellMenuAction.Descending, L10n.T("ui.descending"));
-            uint currentSort = (uint)(settings.SortBy == "size" ? ShellMenuAction.SortSize : settings.SortBy == "type" ? ShellMenuAction.SortType :
-                settings.SortBy == "modified" ? ShellMenuAction.SortModified : ShellMenuAction.SortName);
-            CheckMenuRadioItem(sort, Custom + 20, Custom + 23, Custom + currentSort, 0);
-            CheckMenuRadioItem(sort, Custom + 24, Custom + 25, Custom + (settings.SortDescending ? 25u : 24u), 0);
-            InsertMenu(menu, 2, 0x400, (UIntPtr)(Custom + 30), L10n.T("ui.refresh_e"));
-            InsertMenu(menu, 3, 0x400 | 0x800, UIntPtr.Zero, null);
-        }
-        public static int InspectOptions(string directory, Settings settings)
-        {
-            using (var native = new ShellContextMenu())
+            // Keep Shell IDs unchanged while removing duplicate native
+            // entries: Linux rename/trash are presented in one top block.
+            for (int index = GetMenuItemCount(menu) - 1; index >= 0; index--)
             {
-                native.Build(IntPtr.Zero, new string[0], directory);
-                int before = GetMenuItemCount(native.menu); native.AddViewMenus(settings);
-                return GetMenuItemCount(native.menu) - before;
+                uint id = GetMenuItemID(menu, index);
+                if (id < First || id > Last) continue;
+                string verb = CanonicalVerb(id);
+                if (verb == "delete" || verb == "rename") RemoveMenu(menu, (uint)index, 0x400);
             }
-        }
-        private void OrganizeMenus(int selected, Settings settings)
-        {
-            if (selected > 0)
+            InsertMenu(menu, 0, 0x400, (UIntPtr)(Custom + 1), L10n.T("ui.open_with_linux_default_app"));
+            InsertMenu(menu, 1, 0x400, (UIntPtr)(Custom + 33), L10n.T("ui.linux_open_with"));
+            InsertMenu(menu, 2, 0x400, (UIntPtr)(Custom + 8), L10n.T("ui.rename_f2"));
+            InsertMenu(menu, 3, 0x400, (UIntPtr)(Custom + 7), L10n.T("ui.move_to_linux_trash_delete"));
+            InsertMenu(menu, 4, 0x400, (UIntPtr)(Custom + 32), L10n.T("ui.open_linux_trash"));
+            InsertMenu(menu, 5, 0x400 | 0x800, UIntPtr.Zero, null);
+            if (selected != 1)
             {
-                // Keep Shell IDs unchanged while removing duplicate native
-                // entries: Linux rename/trash are presented in one top block.
-                for (int index = GetMenuItemCount(menu) - 1; index >= 0; index--)
-                {
-                    uint id = GetMenuItemID(menu, index);
-                    if (id < First || id > Last) continue;
-                    string verb = CanonicalVerb(id);
-                    if (verb == "delete" || verb == "rename") RemoveMenu(menu, (uint)index, 0x400);
-                }
-                InsertMenu(menu, 0, 0x400, (UIntPtr)(Custom + 1), L10n.T("ui.open_with_linux_default_app"));
-                InsertMenu(menu, 1, 0x400, (UIntPtr)(Custom + 33), L10n.T("ui.linux_open_with"));
-                InsertMenu(menu, 2, 0x400, (UIntPtr)(Custom + 8), L10n.T("ui.rename_f2"));
-                InsertMenu(menu, 3, 0x400, (UIntPtr)(Custom + 7), L10n.T("ui.move_to_linux_trash_delete"));
-                InsertMenu(menu, 4, 0x400, (UIntPtr)(Custom + 32), L10n.T("ui.open_linux_trash"));
-                InsertMenu(menu, 5, 0x400 | 0x800, UIntPtr.Zero, null);
-                if (selected != 1)
-                {
-                    EnableMenuItem(menu, Custom + 33, 1);
-                    EnableMenuItem(menu, Custom + 8, 1);
-                }
-            }
-            else
-            {
-                AddViewMenus(settings);
-                InsertMenu(menu, 0, 0x400, (UIntPtr)(Custom + 2), L10n.T("ui.folder_settings_ctrl_l"));
-                InsertMenu(menu, 1, 0x400, (UIntPtr)(Custom + 6), L10n.T("ui.bound_folder_alt_home"));
-                InsertMenu(menu, 2, 0x400, (UIntPtr)(Custom + 31), L10n.T("ui.new_folder_ctrl_shift_n"));
-                InsertMenu(menu, 3, 0x400, (UIntPtr)(Custom + 32), L10n.T("ui.open_linux_trash"));
-                InsertMenu(menu, 4, 0x400 | 0x800, UIntPtr.Zero, null);
-                uint end = (uint)GetMenuItemCount(menu);
-                InsertMenu(menu, end++, 0x400 | 0x800, UIntPtr.Zero, null);
-                InsertMenu(menu, end++, 0x400, (UIntPtr)(Custom + 5), L10n.T("ui.restore_window_ctrl_shift_r"));
-                InsertMenu(menu, end++, 0x400, (UIntPtr)(Custom + 3), L10n.T("ui.new_box_ctrl_n"));
-                InsertMenu(menu, end++, 0x400 | 0x800, UIntPtr.Zero, null);
-                InsertMenu(menu, end++, 0x400, (UIntPtr)(Custom + 4), L10n.T("ui.help_and_shortcuts"));
-                InsertMenu(menu, end++, 0x400 | 0x800, UIntPtr.Zero, null);
-                InsertMenu(menu, end++, 0x400, (UIntPtr)(Custom + 34), L10n.T("ui.close_this_box"));
-                InsertMenu(menu, end, 0x400, (UIntPtr)(Custom + 35), L10n.T("ui.exit"));
+                EnableMenuItem(menu, Custom + 33, 1);
+                EnableMenuItem(menu, Custom + 8, 1);
             }
             CleanMenuLabels(menu, new HashSet<IntPtr>());
         }
-        public static string[] InspectOrganizedLabels(string[] paths, string directory, Settings settings)
+        public static string[] InspectOrganizedLabels(string[] paths, string directory)
         {
             using (var native = new ShellContextMenu())
             {
                 native.Build(IntPtr.Zero, paths, directory);
-                native.OrganizeMenus(paths.Length, settings);
+                native.OrganizeMenus(paths.Length);
                 var labels = new List<string>();
                 for (uint index = 0; index < GetMenuItemCount(native.menu); index++)
                 {
@@ -379,11 +378,11 @@ namespace WSLBox
                 return labels.ToArray();
             }
         }
-        private ShellMenuAction ShowCore(Window window, Point screen, string[] paths, string directory, Settings settings)
+        private ShellMenuAction ShowCore(Window window, Point screen, string[] paths, string directory)
         {
             IntPtr owner = new WindowInteropHelper(window).Handle;
             Build(owner, paths, directory);
-            OrganizeMenus(paths.Length, settings);
+            OrganizeMenus(paths.Length);
             source = HwndSource.FromHwnd(owner); hook = HandleMenuMessage;
             if (source != null) source.AddHook(hook);
             SetForegroundWindow(owner);

@@ -13,10 +13,6 @@ namespace WSLBox
         private static extern bool SetForegroundWindow(IntPtr window);
         [DllImport("user32.dll")]
         private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
-        [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
-        private static extern int GetWindowLong(IntPtr window, int index);
-        [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
-        private static extern int SetWindowLong(IntPtr window, int index, int value);
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
@@ -46,6 +42,18 @@ namespace WSLBox
             if (bottom <= 5) return 15; // HTBOTTOM
             return 0;
         }
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+        private static extern int GetWindowLong(IntPtr window, int index);
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+        private static extern int SetWindowLong(IntPtr window, int index, int style);
+        internal static void DisableMinimize(Window window)
+        {
+            const int styleIndex = -16, minimizeBox = 0x00020000;
+            IntPtr handle = new WindowInteropHelper(window).Handle;
+            SetWindowLong(handle, styleIndex, GetWindowLong(handle, styleIndex) & ~minimizeBox);
+            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, 0x0037); // Refresh the non-client frame.
+        }
+
         internal static void DisableTransitions(Window window)
         {
             IntPtr handle = new WindowInteropHelper(window).Handle;
@@ -53,14 +61,21 @@ namespace WSLBox
             int disabled = 1;
             DwmSetWindowAttribute(handle, 3, ref disabled, sizeof(int));
         }
-        internal static void SetMouseActivation(Window window, bool enabled)
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WindowPosition
         {
-            const int extendedStyle = -20, noActivate = 0x08000000;
-            IntPtr handle = new WindowInteropHelper(window).Handle;
-            if (handle == IntPtr.Zero) return;
-            int style = GetWindowLong(handle, extendedStyle);
-            int updated = enabled ? style & ~noActivate : style | noActivate;
-            if (updated != style) SetWindowLong(handle, extendedStyle, updated);
+            public IntPtr Window, InsertAfter;
+            public int X, Y, Width, Height;
+            public uint Flags;
+        }
+
+        internal static void KeepBottomPlacement(IntPtr position)
+        {
+            const uint noZOrder = 0x0004;
+            var change = (WindowPosition)Marshal.PtrToStructure(position, typeof(WindowPosition));
+            if ((change.Flags & noZOrder) != 0) return;
+            change.InsertAfter = new IntPtr(1); // HWND_BOTTOM
+            Marshal.StructureToPtr(change, position, false);
         }
 
         internal static void SendToBottom(Window window)

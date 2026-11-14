@@ -94,9 +94,6 @@ namespace WSLBox
     }
     internal static class FolderPicker
     {
-        [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
-        private static extern void SHCreateItemFromParsingName(string path, IntPtr context, ref Guid iid,
-            [MarshalAs(UnmanagedType.Interface)] out IShellItem item);
         public static string Pick(Window owner, string distro, string linuxPath)
         {
             IFolderDialog dialog = null;
@@ -108,9 +105,8 @@ namespace WSLBox
                 dialog.SetOptions(options | 0x20 | 0x40 | 0x800 | 0x02000000); // pick folders, filesystem, existing path, don't add to recent
                 dialog.SetTitle(L10n.F("settings.picker_title", distro));
                 dialog.SetOkButtonLabel(L10n.T("ui.select_folder"));
-                Guid iid = typeof(IShellItem).GUID;
-                try { SHCreateItemFromParsingName(Paths.Unc(distro, linuxPath), IntPtr.Zero, ref iid, out initial); }
-                catch (COMException) { SHCreateItemFromParsingName(Paths.Unc(distro, "/"), IntPtr.Zero, ref iid, out initial); }
+                try { initial = ShellTransfer.CreateItem(Paths.Unc(distro, linuxPath)); }
+                catch (COMException) { initial = ShellTransfer.CreateItem(Paths.Unc(distro, "/")); }
                 dialog.SetFolder(initial);
                 int result = dialog.Show(new WindowInteropHelper(owner).Handle);
                 if (result == unchecked((int)0x800704C7)) return null;

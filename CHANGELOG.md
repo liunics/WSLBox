@@ -2,6 +2,14 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.5.0
+
+- Use native Windows Shell drag and clipboard commands, with file names in live drag feedback.
+- Refresh ordinary folders incrementally and load thumbnails for visible items.
+- Keep scrollbars at the right edge without covering file names.
+- Open Help and Shortcuts in a separate window with a taskbar entry.
+- Keep box shortcuts local to the focused window and improve Trash navigation and selection.
+
 ## 1.4.0
 
 - Add an optional Trash tab with restore and permanent deletion, and share navigation history with ordinary folders.

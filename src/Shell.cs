@@ -50,7 +50,7 @@ namespace WSLBox
         private static extern void SHCreateItemFromParsingName(string path, IntPtr context, ref Guid iid,
             [MarshalAs(UnmanagedType.Interface)] out IShellItem item);
 
-        private static IShellItem Item(string path)
+        internal static IShellItem CreateItem(string path)
         {
             Guid iid = typeof(IShellItem).GUID;
             IShellItem item;
@@ -73,11 +73,11 @@ namespace WSLBox
                     // overwrite, and leave cross-volume source deletion to Windows.
                     operation.SetOperationFlags(0x0040 | 0x20000000);
                     operation.SetOwnerWindow(owner);
-                    IShellItem target = Item(destination);
+                    IShellItem target = CreateItem(destination);
                     items.Add(target);
                     foreach (string source in sources)
                     {
-                        IShellItem item = Item(source);
+                        IShellItem item = CreateItem(source);
                         items.Add(item);
                         if (move) operation.MoveItem(item, target, null, IntPtr.Zero);
                         else operation.CopyItem(item, target, null, IntPtr.Zero);

@@ -11,6 +11,7 @@ namespace WSLBox
     }
     internal static class Theme
     {
+        public static double FileScrollbarWidth { get { return SystemParameters.VerticalScrollBarWidth; } }
         public static readonly Brush Text = new SolidColorBrush(Color.FromRgb(239, 243, 248));
         public static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(171, 184, 201));
         public static Brush PanelMuted { get { return SystemColors.GrayTextBrush; } }
@@ -91,7 +92,7 @@ namespace WSLBox
 
         public static ResourceDictionary Resources()
         {
-            return (ResourceDictionary)XamlReader.Parse(@"<ResourceDictionary xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'>
+            var resources = (ResourceDictionary)XamlReader.Parse(@"<ResourceDictionary xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'>
 <Style x:Key='HeaderButton' TargetType='Button'>
  <Setter Property='Foreground' Value='#EEEFF3'/><Setter Property='Background' Value='Transparent'/>
  <Setter Property='BorderThickness' Value='0'/><Setter Property='Width' Value='28'/><Setter Property='Height' Value='28'/>
@@ -129,8 +130,9 @@ namespace WSLBox
 <Style x:Key='FileScroller' TargetType='ScrollViewer'>
  <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='ScrollViewer'>
   <Grid ClipToBounds='True'>
-   <ScrollContentPresenter x:Name='PART_ScrollContentPresenter' Content='{TemplateBinding Content}' ContentTemplate='{TemplateBinding ContentTemplate}' CanContentScroll='{TemplateBinding CanContentScroll}' Margin='{TemplateBinding Padding}'/>
-   <ScrollBar x:Name='PART_VerticalScrollBar' HorizontalAlignment='Right' Orientation='Vertical'
+   <Grid.ColumnDefinitions><ColumnDefinition Width='*'/><ColumnDefinition Width='{DynamicResource FileScrollbarGutter}'/></Grid.ColumnDefinitions>
+   <ScrollContentPresenter x:Name='PART_ScrollContentPresenter' ClipToBounds='True' Content='{TemplateBinding Content}' ContentTemplate='{TemplateBinding ContentTemplate}' CanContentScroll='{TemplateBinding CanContentScroll}' Margin='{TemplateBinding Padding}'/>
+   <ScrollBar x:Name='PART_VerticalScrollBar' Grid.Column='1' HorizontalAlignment='Right' Orientation='Vertical'
     Maximum='{TemplateBinding ScrollableHeight}' ViewportSize='{TemplateBinding ViewportHeight}'
     Value='{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}'
     Visibility='{TemplateBinding ComputedVerticalScrollBarVisibility}'/>
@@ -138,18 +140,21 @@ namespace WSLBox
  </ControlTemplate></Setter.Value></Setter>
 </Style>
 <Style TargetType='ScrollBar'>
- <Setter Property='Width' Value='8'/><Setter Property='Background' Value='Transparent'/>
+ <Setter Property='Width' Value='{DynamicResource FileScrollbarWidth}'/><Setter Property='Background' Value='Transparent'/>
  <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='ScrollBar'>
   <Grid Background='Transparent'><Track x:Name='PART_Track' Orientation='{TemplateBinding Orientation}' IsDirectionReversed='True'
    Minimum='{TemplateBinding Minimum}' Maximum='{TemplateBinding Maximum}' ViewportSize='{TemplateBinding ViewportSize}'
    Value='{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}'>
    <Track.DecreaseRepeatButton><RepeatButton Command='{x:Static ScrollBar.PageUpCommand}' Focusable='False'><RepeatButton.Template><ControlTemplate TargetType='RepeatButton'><Border Background='Transparent'/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
-   <Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType='Thumb'><Border x:Name='thumb' Background='#509FAFC3' CornerRadius='4' Margin='1'/><ControlTemplate.Triggers><Trigger Property='IsMouseOver' Value='True'><Setter TargetName='thumb' Property='Background' Value='#AAAFBED1'/></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+   <Track.Thumb><Thumb Width='{DynamicResource FileScrollbarWidth}' MinWidth='0' Padding='0' BorderThickness='0'><Thumb.Template><ControlTemplate TargetType='Thumb'><Border x:Name='thumb' Background='#509FAFC3' CornerRadius='6' Margin='2,1'/><ControlTemplate.Triggers><Trigger Property='IsMouseOver' Value='True'><Setter TargetName='thumb' Property='Background' Value='#AAAFBED1'/></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
    <Track.IncreaseRepeatButton><RepeatButton Command='{x:Static ScrollBar.PageDownCommand}' Focusable='False'><RepeatButton.Template><ControlTemplate TargetType='RepeatButton'><Border Background='Transparent'/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
   </Track></Grid>
  </ControlTemplate></Setter.Value></Setter>
  <Style.Triggers><Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0'/></Trigger><Trigger Property='Maximum' Value='0'><Setter Property='Opacity' Value='0'/><Setter Property='IsHitTestVisible' Value='False'/></Trigger></Style.Triggers>
 </Style></ResourceDictionary>");
+            resources["FileScrollbarWidth"] = FileScrollbarWidth;
+            resources["FileScrollbarGutter"] = new GridLength(FileScrollbarWidth);
+            return resources;
         }
         public static System.Windows.Controls.Image HeaderIcon(string kind)
         {

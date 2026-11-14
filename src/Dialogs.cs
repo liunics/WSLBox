@@ -60,6 +60,8 @@ namespace WSLBox
             layout.Children.Add(new TextBlock { Text = L10n.T("ui.accepts_linux_paths_or_wsl_unc_paths_such_as_wsl_localhost_and_w"),
                 Foreground = Theme.PanelMuted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 5) });
             titleHint.Margin = new Thickness(0, 0, 0, 12); layout.Children.Add(titleHint);
+            layout.Children.Add(new TextBlock { Text = L10n.T("ui.windows_access_as_default_user"),
+                Foreground = Theme.PanelMuted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
             showTrashTab.Content = L10n.T("ui.show_trash_tab");
             showTrashTab.IsChecked = showTrash;
             showTrashTab.Margin = new Thickness(0, 0, 0, 12);
@@ -186,12 +188,22 @@ namespace WSLBox
 
     internal static class Dialogs
     {
+        internal static void PlaceDialog(Window dialog, Window owner)
+        {
+            var box = owner as BoxForm;
+            // Windows can raise the owner when a modal child is shown.
+            if (owner != null && (box == null || !box.IsBottomLayer))
+                dialog.Owner = owner;
+            else
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
+
         public static string FileName(Window owner, string heading, string initial, bool folder)
         {
             var dialog = new Window { Title = heading, Width = 440, SizeToContent = SizeToContent.Height,
                 ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, Icon = Branding.Image,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = owner };
+                WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            PlaceDialog(dialog, owner);
             Theme.ApplyPanelTheme(dialog);
             var layout = new StackPanel { Margin = new Thickness(20) };
             layout.Children.Add(new TextBlock { Text = folder ? L10n.T("ui.folder_name") : L10n.T("ui.new_name_keep_the_extension_you_need"), Margin = new Thickness(0, 0, 0, 8) });
@@ -219,7 +231,7 @@ namespace WSLBox
                 SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
                 ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
             Theme.ApplyPanelTheme(window);
-            if (owner != null) window.Owner = owner;
+            PlaceDialog(window, owner);
             var layout = new StackPanel { Margin = new Thickness(24) };
             var heading = new DockPanel { Margin = new Thickness(0, 0, 0, 18) };
             heading.Children.Add(new Image { Source = Branding.Image, Width = 68, Height = 68, Margin = new Thickness(0, 0, 16, 0) });
@@ -278,10 +290,9 @@ namespace WSLBox
         {
             var window = new Window { Title = L10n.T("ui.wslbox_help"), Width = 690,
                 Height = Math.Min(760, Math.Max(380, SystemParameters.WorkArea.Height * 0.88)),
-                Icon = Branding.Image, MinWidth = 520, MinHeight = 380, ShowInTaskbar = false,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                Icon = Branding.Image, MinWidth = 520, MinHeight = 380, ShowInTaskbar = true,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen };
             Theme.ApplyPanelTheme(window);
-            if (owner != null) window.Owner = owner;
             var content = new StackPanel { Margin = new Thickness(24) };
             content.Children.Add(new TextBlock { Text = L10n.T("ui.help_and_shortcuts"), FontSize = 23, FontWeight = FontWeights.SemiBold });
             content.Children.Add(new TextBlock { Text = L10n.T("help.intro"), TextWrapping = TextWrapping.Wrap,
@@ -339,6 +350,18 @@ namespace WSLBox
                 Grid.SetRow(cell, row); Grid.SetColumn(cell, column); grid.Children.Add(cell);
             }
         }
-        public static void Help(Window owner) { CreateHelp(owner).ShowDialog(); }
+        private static Window helpWindow;
+        public static void Help(Window owner)
+        {
+            if (helpWindow == null)
+            {
+                helpWindow = CreateHelp(owner);
+                helpWindow.Closed += (sender, e) => helpWindow = null;
+                helpWindow.Show();
+            }
+            else if (helpWindow.WindowState == WindowState.Minimized)
+                helpWindow.WindowState = WindowState.Normal;
+            helpWindow.Activate();
+        }
     }
 }

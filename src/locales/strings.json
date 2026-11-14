@@ -1,4 +1,44 @@
 {
+  "ui.drag_copy_items": {
+    "zh-CN": "复制 {0}",
+    "en-US": "Copy {0}"
+  },
+  "ui.drag_move_items": {
+    "zh-CN": "移动 {0}",
+    "en-US": "Move {0}"
+  },
+  "ui.drag_link_items": {
+    "zh-CN": "为 {0} 创建快捷方式",
+    "en-US": "Create shortcuts for {0}"
+  },
+  "ui.drag_multiple_items": {
+    "zh-CN": "{0} 等项目（另有 {1} 项）",
+    "en-US": "{0} and {1} more"
+  },
+  "ui.drag_destination": {
+    "zh-CN": "{0} 到 {1}",
+    "en-US": "{0} to {1}"
+  },
+  "ui.drag_unavailable": {
+    "zh-CN": "无法放置到此位置",
+    "en-US": "Cannot drop here"
+  },
+  "ui.transfer_moved": {
+    "zh-CN": "移动完成",
+    "en-US": "Move completed"
+  },
+  "ui.transfer_copied": {
+    "zh-CN": "复制完成",
+    "en-US": "Copy completed"
+  },
+  "ui.transfer_stopped": {
+    "zh-CN": "传输已中断，部分文件可能已经传输",
+    "en-US": "Transfer stopped. Some files may already have been transferred."
+  },
+  "ui.windows_access_as_default_user": {
+    "zh-CN": "资源管理器、Windows 右键菜单和拖放使用发行版默认用户的权限。",
+    "en-US": "File Explorer, Windows context menus and drag and drop use the distribution default user’s permissions."
+  },
   "ui.default_linux_user": {
     "zh-CN": "发行版默认用户",
     "en-US": "Distribution default"
@@ -716,6 +756,10 @@
     "zh-CN": "正在复制，请查看 Windows 文件操作窗口…",
     "en-US": "Copying; check the Windows file operation dialog…"
   },
+  "ui.drop_submitted": {
+    "zh-CN": "已将拖放请求交给目标窗口",
+    "en-US": "Drop submitted to the destination window"
+  },
   "ui.file_operation_complete": {
     "zh-CN": "文件操作已完成。",
     "en-US": "File operation complete."
@@ -1005,8 +1049,8 @@
     "en-US": "Unable to open the link. Copy the address into your browser."
   },
   "help.intro": {
-    "zh-CN": "快捷键仅作用于当前盒子。界面语言由全局菜单设置；帮助不占用 F1。",
-    "en-US": "Shortcuts apply to the focused box. Change the UI language from the global menu. F1 remains available to other applications."
+    "zh-CN": "点击盒子使其获得焦点后，即可使用下表中的键盘快捷键。",
+    "en-US": "Click a box to focus it and use the keyboard shortcuts below."
   },
   "help.windows": {
     "zh-CN": "窗口与桌面",

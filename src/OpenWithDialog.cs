@@ -39,9 +39,11 @@ namespace WSLBox
         public bool SetDefault { get { return always.IsChecked == true; } }
         public OpenWithDialog(Window owner, WslClient client, string distro, string path)
         {
-            Title = L10n.T("ui.linux_open_with"); Owner = owner; Icon = Branding.Image;
+            Title = L10n.T("ui.linux_open_with"); Icon = Branding.Image;
             Width = 540; Height = 540; MinWidth = 420; MinHeight = 380;
             ShowInTaskbar = false; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Dialogs.PlaceDialog(this, owner);
+            SourceInitialized += (s, e) => WindowEffects.DisableMinimize(this);
             Theme.ApplyPanelTheme(this);
             var layout = new DockPanel { Margin = new Thickness(20) };
             var heading = new StackPanel();

@@ -50,20 +50,35 @@ namespace WSLBox
             return Language == "zh-CN" ? value.Chinese ?? value.English ?? key : value.English ?? value.Chinese ?? key;
         }
         public static string F(string key, params object[] arguments) { return String.Format(CultureInfo.GetCultureInfo(Language), T(key), arguments); }
-        public static MenuItem LanguageMenu(Func<string> preference, Action<string> change)
+        public const string LanguageMenuLabel = "Language / 语言";
+
+        public static Action BindLanguageChoices(Func<string> preference, Action<string> change,
+            Func<string, Action, Action<bool>> addChoice)
         {
-            var root = new MenuItem { Header = "Language / 语言" };
+            var checks = new List<KeyValuePair<string, Action<bool>>>();
             foreach (var pair in Choices)
             {
                 string code = pair.Key;
-                var item = new MenuItem { Header = pair.Value, IsCheckable = true };
-                item.Click += (s,e) => change(code);
-                root.Items.Add(item);
+                checks.Add(new KeyValuePair<string, Action<bool>>(code, addChoice(pair.Value, () => change(code))));
             }
-            root.SubmenuOpened += (s,e) => {
-                foreach (MenuItem item in root.Items) item.IsChecked = (string)item.Tag == Normalize(preference());
+            return () =>
+            {
+                string selected = Normalize(preference());
+                foreach (var check in checks) check.Value(check.Key == selected);
             };
-            for (int index = 0; index < Choices.Length; index++) ((MenuItem)root.Items[index]).Tag = Choices[index].Key;
+        }
+
+        public static MenuItem LanguageMenu(Func<string> preference, Action<string> change)
+        {
+            var root = new MenuItem { Header = LanguageMenuLabel };
+            Action refresh = BindLanguageChoices(preference, change, (label, select) =>
+            {
+                var item = new MenuItem { Header = label, IsCheckable = true };
+                item.Click += (s, e) => { select(); item.IsChecked = true; };
+                root.Items.Add(item);
+                return value => item.IsChecked = value;
+            });
+            root.SubmenuOpened += (s, e) => refresh();
             return root;
         }
         public static readonly KeyValuePair<string,string>[] Choices = {

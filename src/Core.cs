@@ -49,6 +49,8 @@ namespace WSLBox
         [DataMember] public string Error;
         [DataMember] public string InputMethodWarning;
         [DataMember] public Entry[] Entries;
+        [DataMember] public string Revision;
+        [DataMember] public string[] RemovedPaths;
         [DataMember] public LinuxIcon[] Icons;
         [DataMember] public ThumbnailResult[] Thumbnails;
         [DataMember] public bool Ok;
@@ -344,24 +346,25 @@ namespace WSLBox
             return Task.Run(() => Worker(distro).Open(path, application, setDefault));
         }
 
-        public Task<Reply> Run(string distro, string command, string path, bool showHidden = false)
+        public Task<Reply> Run(string distro, string command, string path, bool showHidden = false, string revision = null)
         {
             if (command == "open") return Task.Run(() => Worker(distro).Open(path));
-            if (command == "open-trash" || command == "list-trash" || command == "open-trashed-file"
+            if (command == "open-trash" || command == "open-trashed-file"
                 || command == "restore-trash" || command == "purge-trash") return Task.Run(() => Worker(distro).Request(command, path));
             if (command == "delete-permanently" || (command == "info" && String.IsNullOrWhiteSpace(distro)))
                 return RunOneShot(distro, command, path);
-            string mode = command == "thumbnails" ? "serve-thumbnails" : "serve-metadata";
-            bool readOnly = command == "list" || command == "list-icons" || command == "info"
+            bool trashRead = command == "list-trash" || (command == "trash-folder" && path != null);
+            string mode = trashRead ? "serve-open" : command == "thumbnails" ? "serve-thumbnails" : "serve-metadata";
+            bool readOnly = trashRead || command == "list" || command == "list-icons" || command == "info"
                 || command == "folder-info" || command == "applications" || command == "thumbnails" || command == "users" || command == "trash-folder";
             if (!readOnly) return Task.Run(() => Worker(distro, mode).Request(command, path));
-            string key = distro + "\n" + linuxUser + "\n" + scriptKey + "\n" + command + "\n" + showHidden + "\n" + path;
+            string key = distro + "\n" + linuxUser + "\n" + scriptKey + "\n" + command + "\n" + showHidden + "\n" + revision + "\n" + path;
             lock (workerLock)
             {
                 if (workersClosing) throw new ObjectDisposedException("WslClient");
                 Task<Reply> pending;
                 if (reads.TryGetValue(key, out pending) && !pending.IsCompleted) return pending;
-                pending = Task.Run(() => Worker(distro, mode).Request(command, path, showHidden: showHidden));
+                pending = Task.Run(() => Worker(distro, mode, trashRead).Request(command, path, showHidden: showHidden, revision: revision));
                 reads[key] = pending;
                 pending.ContinueWith(done => {
                     lock (workerLock)
@@ -374,9 +377,9 @@ namespace WSLBox
                 return pending;
             }
         }
-        private OpenWorker Worker(string distro, string mode = "serve-open")
+        private OpenWorker Worker(string distro, string mode = "serve-open", bool trashRead = false)
         {
-            string key = (distro ?? "") + "\n" + linuxUser + "\n" + mode + "\n" + scriptKey;
+            string key = (distro ?? "") + "\n" + linuxUser + "\n" + mode + "\n" + trashRead + "\n" + scriptKey;
             lock (workerLock)
             {
                 if (workersClosing) throw new ObjectDisposedException("WslClient");
