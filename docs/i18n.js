@@ -1,5 +1,13 @@
 'use strict';
 window.WSLBOX_I18N = {
+  "theme.light": {
+    "en": "Switch to light theme",
+    "zh-CN": "切换到浅色主题"
+  },
+  "theme.dark": {
+    "en": "Switch to dark theme",
+    "zh-CN": "切换到深色主题"
+  },
   "skip": {
     "en": "Skip to content",
     "zh-CN": "跳到正文"
