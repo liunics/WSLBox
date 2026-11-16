@@ -103,6 +103,8 @@ namespace WSLBox
         private readonly System.Drawing.Icon trayIcon;
         private bool exiting;
         private readonly DesktopToggle desktopToggle;
+        private readonly System.Windows.Threading.DispatcherTimer displayChangeTimer;
+        private int displayPlacementPass;
         private readonly List<BoxForm> desktopHidden = new List<BoxForm>();
         public BoxWorkspace(Application app, WorkspaceLayout layout)
         {
@@ -146,6 +148,9 @@ namespace WSLBox
             menu.Items.Add(L10n.T("ui.exit"), null, (s, e) => Exit());
             tray.ContextMenuStrip = menu;
             tray.DoubleClick += (s, e) => ShowAll();
+            displayChangeTimer = new System.Windows.Threading.DispatcherTimer();
+            displayChangeTimer.Tick += ApplyDisplayPlacement;
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         }
         public string LanguagePreference { get { return L10n.Normalize(layout.Language); } }
         public void SetLanguage(string value)
@@ -204,6 +209,35 @@ namespace WSLBox
             try { layout.Save(); }
             catch (Exception ex) { MessageBox.Show(L10n.T("ui.could_not_save_the_box_layout") + ex.Message, "WSLBox"); }
         }
+        private void OnDisplaySettingsChanged(object sender, EventArgs e)
+        {
+            app.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (exiting || app.Dispatcher.HasShutdownStarted) return;
+                displayPlacementPass = 0;
+                displayChangeTimer.Stop();
+                displayChangeTimer.Interval = TimeSpan.FromMilliseconds(350);
+                displayChangeTimer.Start();
+            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        private void ApplyDisplayPlacement(object sender, EventArgs e)
+        {
+            displayChangeTimer.Stop();
+            if (exiting) return;
+            var screens = Forms.Screen.AllScreens;
+            bool changed = false;
+            foreach (BoxForm window in windows)
+                changed |= window.RepositionAfterDisplayChange(screens);
+            if (changed) Save();
+            // The shell can restore its own window placement after the display notification.
+            if (displayPlacementPass++ == 0)
+            {
+                displayChangeTimer.Interval = TimeSpan.FromMilliseconds(900);
+                displayChangeTimer.Start();
+            }
+        }
+
         private void ShowAll()
         {
             desktopHidden.Clear();
@@ -235,6 +269,8 @@ namespace WSLBox
         }
         public void Dispose()
         {
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+            displayChangeTimer.Stop();
             desktopToggle.Dispose();
             tray.Visible = false;
             if (tray.ContextMenuStrip != null) tray.ContextMenuStrip.Dispose();

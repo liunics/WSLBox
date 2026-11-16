@@ -2,6 +2,10 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.6.1
+
+- Fix box placement when a display is disconnected or reconnected. Boxes temporarily move to the top center of the primary display and return to their previous position and size when the original display reconnects.
+
 ## 1.6.0
 
 - Show the WSL distribution and Linux user below each box title.

@@ -101,6 +101,9 @@ namespace WSLBox
         private static int clipboardWriteVersion;
         private const int ClipboardCannotOpen = unchecked((int)0x800401D0);
         private Rect normalBounds;
+        private string lastMonitor;
+        private string disconnectedMonitor;
+        private Rect boundsBeforeDisconnect;
         private Rect sizingStart = Rect.Empty;
         private bool captionPending, captionMoving, restoringCaption;
         private Point captionDownScreen, captionDownLocal, captionOrigin, captionPointer;
@@ -259,7 +262,8 @@ namespace WSLBox
                 header.ReleaseMouseCapture();
                 if (moved)
                 {
-                    if (target == PointerSnap.None) Persist();
+                    RememberMonitor();
+                    if (target == PointerSnap.None) { RememberBounds(); Persist(); }
                     else ApplyPointerSnap(target, WorkAreaAt(captionDevice));
                     if (!busy && !opening) status.Visibility = Visibility.Collapsed;
                 }
@@ -269,7 +273,7 @@ namespace WSLBox
                 bool moved = captionMoving; captionPending = captionMoving = false;
                 captionSnap = PointerSnap.None;
                 ClearSnapPreview();
-                if (moved) Persist();
+                if (moved) { RememberMonitor(); RememberBounds(); Persist(); }
             };
             layout.Children.Add(header);
 
@@ -482,14 +486,20 @@ namespace WSLBox
             {
                 var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
                 if (source != null) source.AddHook(HandleWindowMessage);
+                RememberMonitor();
             };
             Closing += OnClosing;
             Closed += (s, e) => {
                 // Normal close, native close, and application shutdown share cleanup.
                 PrepareForClose();
             };
-            LocationChanged += (s, e) => RememberBounds();
-            SizeChanged += (s, e) => RememberBounds();
+            // Persist actual user moves and resizes. Windows also emits layout
+            // events while it rearranges monitors, which are not user edits.
+            if (workspace == null)
+            {
+                LocationChanged += (s, e) => RememberBounds();
+                SizeChanged += (s, e) => RememberBounds();
+            }
             StateChanged += OnWindowStateChanged;
             refreshTimer.Interval = TimeSpan.FromSeconds(5);
             refreshTimer.Tick += async (s, e) => {
@@ -521,9 +531,11 @@ namespace WSLBox
                 sizingStart = Rect.Empty;
                 Rect current;
                 if (!original.IsEmpty && WindowEffects.TryGetBounds(this, out current)
-                    && current.Size != original.Size && WindowState == WindowState.Normal)
+                    && current != original && WindowState == WindowState.Normal)
                 {
-                    settings.EdgeLayout = "";
+                    if (current.Size != original.Size) settings.EdgeLayout = "";
+                    RememberMonitor();
+                    RememberBounds();
                     Persist();
                 }
             }
@@ -905,7 +917,7 @@ namespace WSLBox
             target.Items.Add(item); return item;
         }
         private void NewBox() { if (workspace != null) workspace.CreateBox(this); }
-        private void Persist() { if (closing) return; RememberBounds(); if (workspace != null) workspace.Save(); }
+        private void Persist() { if (closing) return; if (workspace != null) workspace.Save(); else RememberBounds(); }
         public void RememberBounds() { RememberBoundsCore(false); }
         private void RememberBoundsCore(bool beforeMaximize)
         {
@@ -946,6 +958,66 @@ namespace WSLBox
             var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)device.X, (int)device.Y)).Bounds;
             return new Rect(ToDip(new Point(screen.Left, screen.Top)), ToDip(new Point(screen.Right, screen.Bottom)));
         }
+        private void RememberMonitor()
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle == IntPtr.Zero || WindowState == WindowState.Minimized || applyingBounds) return;
+            var screens = System.Windows.Forms.Screen.AllScreens;
+            // Windows may move the window before the display-change callback.
+            // Keep the departed monitor's identity until recovery has run.
+            if (lastMonitor != null && !screens.Any(screen => screen.DeviceName == lastMonitor)) return;
+            lastMonitor = System.Windows.Forms.Screen.FromHandle(handle).DeviceName;
+            // An explicit move or resize supersedes the pre-disconnect placement.
+            disconnectedMonitor = null;
+        }
+
+        internal bool RepositionAfterDisplayChange(System.Windows.Forms.Screen[] screens)
+        {
+            if (closing || lastMonitor == null) return false;
+            var reconnected = disconnectedMonitor == null ? null
+                : screens.FirstOrDefault(screen => screen.DeviceName == disconnectedMonitor);
+            var monitor = reconnected ?? screens.FirstOrDefault(screen => screen.DeviceName == lastMonitor);
+            bool removed = monitor == null;
+            if (removed) monitor = screens.FirstOrDefault(screen => screen.Primary);
+            if (monitor == null) return false;
+
+            if (removed && disconnectedMonitor == null)
+            {
+                disconnectedMonitor = lastMonitor;
+                boundsBeforeDisconnect = normalBounds;
+            }
+            bool temporaryPlacement = disconnectedMonitor != null && reconnected == null;
+            Rect remembered = disconnectedMonitor == null ? normalBounds : boundsBeforeDisconnect;
+            lastMonitor = monitor.DeviceName;
+            if (reconnected != null) disconnectedMonitor = null;
+            var area = monitor.WorkingArea;
+            var work = new Rect(ToDip(new Point(area.Left, area.Top)), ToDip(new Point(area.Right, area.Bottom)));
+            Rect restored = temporaryPlacement ? WindowGeometry.TopCenterInWorkArea(remembered, work)
+                : WindowGeometry.Restore(remembered, work, null, 0, 0);
+            var expected = new Rect(restored.Left, restored.Top, restored.Width, Collapsed ? 44 : restored.Height);
+            bool wasMinimized = WindowState == WindowState.Minimized;
+            bool moved = normalBounds != restored;
+            if (!removed && reconnected == null && !moved && !settings.Maximized && settings.EdgeLayout == ""
+                && (wasMinimized || WindowEffects.BoundsMatch(this, expected))) return false;
+
+            normalBounds = restored;
+            StoreNormalBounds();
+            bool previous = applyingBounds;
+            applyingBounds = true;
+            try
+            {
+                WindowState = WindowState.Normal;
+                Left = restored.Left;
+                Top = restored.Top;
+                ApplyWindowLayout(work);
+                if (wasMinimized) WindowState = WindowState.Minimized;
+                else if (WindowState == WindowState.Normal && !settings.Maximized && settings.EdgeLayout == "")
+                    WindowEffects.ApplyBounds(this, expected);
+            }
+            finally { applyingBounds = previous; }
+            return moved;
+        }
+
         private Rect CurrentWorkArea()
         {
             IntPtr handle = new WindowInteropHelper(this).Handle;
@@ -2136,7 +2208,7 @@ namespace WSLBox
         internal void PrepareForClose()
         {
             if (closing) return;
-            RememberBounds();
+            if (workspace == null) RememberBounds();
             closing = true;
             ++thumbnailGeneration;
             refreshTimer.Stop(); noticeTimer.Stop(); hoverTimer.Stop(); thumbnailTimer.Stop();

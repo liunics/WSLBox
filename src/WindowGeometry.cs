@@ -47,6 +47,13 @@ namespace WSLBox
             }
             return new Rect(x, y, width, height);
         }
+        public static Rect TopCenterInWorkArea(Rect remembered, Rect work)
+        {
+            Rect fitted = Restore(remembered, work, null, 0, 0);
+            return new Rect(work.Left + Math.Max(0, (work.Width - fitted.Width) / 2),
+                work.Top, fitted.Width, fitted.Height);
+        }
+
         public static Point Magnet(Point origin, Size size, Rect work, double threshold = 12)
         {
             double x = origin.X, y = origin.Y;

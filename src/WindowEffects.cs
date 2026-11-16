@@ -31,6 +31,33 @@ namespace WSLBox
             }
             rectangle = Rect.Empty; return false;
         }
+        private static Rect DeviceBounds(Window window, Rect logical)
+        {
+            var source = PresentationSource.FromVisual(window) as HwndSource;
+            var transform = source == null ? System.Windows.Media.Matrix.Identity : source.CompositionTarget.TransformToDevice;
+            return new Rect(transform.Transform(logical.TopLeft), transform.Transform(logical.BottomRight));
+        }
+
+        internal static bool BoundsMatch(Window window, Rect logical)
+        {
+            Rect actual;
+            if (!TryGetBounds(window, out actual)) return false;
+            Rect expected = DeviceBounds(window, logical);
+            return Math.Abs(actual.Left - expected.Left) <= 1 && Math.Abs(actual.Top - expected.Top) <= 1
+                && Math.Abs(actual.Width - expected.Width) <= 1 && Math.Abs(actual.Height - expected.Height) <= 1;
+        }
+
+        internal static void ApplyBounds(Window window, Rect logical)
+        {
+            if (BoundsMatch(window, logical)) return;
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle == IntPtr.Zero) return;
+            Rect target = DeviceBounds(window, logical);
+            const uint noZOrderOrActivation = 0x0014;
+            SetWindowPos(handle, IntPtr.Zero, (int)Math.Round(target.Left), (int)Math.Round(target.Top),
+                (int)Math.Round(target.Width), (int)Math.Round(target.Height), noZOrderOrActivation);
+        }
+
         internal static int ResizeHit(Rect bounds, Point point, DpiScale dpi)
         {
             if (!bounds.Contains(point)) return 0;
