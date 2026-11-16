@@ -90,7 +90,7 @@ namespace WSLBox
         None = 0, OpenLinux = 1, Configure = 2, NewBox = 3, Help = 4, Restore = 5, Home = 6, Trash = 7, Rename = 8, PermanentDelete = 9,
         LargeIcons = 10, MediumIcons = 11, SmallIcons = 12, List = 13, ToggleThumbnails = 14, ToggleHidden = 15,
         SortName = 20, SortSize = 21, SortType = 22, SortModified = 23,
-        Ascending = 24, Descending = 25, Refresh = 30, NewFolder = 31, OpenTrash = 32, OpenWithLinux = 33, CloseBox = 34, ExitProgram = 35
+        Ascending = 24, Descending = 25, Refresh = 30, NewFolder = 31, OpenWithLinux = 33, CloseBox = 34, ExitProgram = 35, OpenTerminal = 36, CopyLinuxPath = 37
     }
 
     public sealed class ShellMenuInvocationException : IOException
@@ -334,11 +334,11 @@ namespace WSLBox
                 return labels.ToArray();
             }
         }
-        public static ShellMenuAction Show(Window window, Point screen, string[] paths, string directory)
+        public static ShellMenuAction Show(Window window, Point screen, string[] paths, string directory, bool canOpenTerminal)
         {
-            using (var native = new ShellContextMenu()) return native.ShowCore(window, screen, paths, directory);
+            using (var native = new ShellContextMenu()) return native.ShowCore(window, screen, paths, directory, canOpenTerminal);
         }
-        private void OrganizeMenus(int selected)
+        private void OrganizeMenus(int selected, bool canOpenTerminal)
         {
             // Keep Shell IDs unchanged while removing duplicate native
             // entries: Linux rename/trash are presented in one top block.
@@ -353,8 +353,11 @@ namespace WSLBox
             InsertMenu(menu, 1, 0x400, (UIntPtr)(Custom + 33), L10n.T("ui.linux_open_with"));
             InsertMenu(menu, 2, 0x400, (UIntPtr)(Custom + 8), L10n.T("ui.rename_f2"));
             InsertMenu(menu, 3, 0x400, (UIntPtr)(Custom + 7), L10n.T("ui.move_to_linux_trash_delete"));
-            InsertMenu(menu, 4, 0x400, (UIntPtr)(Custom + 32), L10n.T("ui.open_linux_trash"));
-            InsertMenu(menu, 5, 0x400 | 0x800, UIntPtr.Zero, null);
+            if (canOpenTerminal)
+                InsertMenu(menu, 2, 0x400, (UIntPtr)(Custom + (uint)ShellMenuAction.OpenTerminal), L10n.T("ui.open_in_terminal"));
+            uint copyPathPosition = canOpenTerminal ? 3u : 2u;
+            InsertMenu(menu, copyPathPosition, 0x400, (UIntPtr)(Custom + (uint)ShellMenuAction.CopyLinuxPath), L10n.T("ui.copy_linux_path"));
+            InsertMenu(menu, canOpenTerminal ? 6u : 5u, 0x400 | 0x800, UIntPtr.Zero, null);
             if (selected != 1)
             {
                 EnableMenuItem(menu, Custom + 33, 1);
@@ -362,12 +365,12 @@ namespace WSLBox
             }
             CleanMenuLabels(menu, new HashSet<IntPtr>());
         }
-        public static string[] InspectOrganizedLabels(string[] paths, string directory)
+        public static string[] InspectOrganizedLabels(string[] paths, string directory, bool canOpenTerminal = false)
         {
             using (var native = new ShellContextMenu())
             {
                 native.Build(IntPtr.Zero, paths, directory);
-                native.OrganizeMenus(paths.Length);
+                native.OrganizeMenus(paths.Length, canOpenTerminal);
                 var labels = new List<string>();
                 for (uint index = 0; index < GetMenuItemCount(native.menu); index++)
                 {
@@ -378,11 +381,11 @@ namespace WSLBox
                 return labels.ToArray();
             }
         }
-        private ShellMenuAction ShowCore(Window window, Point screen, string[] paths, string directory)
+        private ShellMenuAction ShowCore(Window window, Point screen, string[] paths, string directory, bool canOpenTerminal)
         {
             IntPtr owner = new WindowInteropHelper(window).Handle;
             Build(owner, paths, directory);
-            OrganizeMenus(paths.Length);
+            OrganizeMenus(paths.Length, canOpenTerminal);
             source = HwndSource.FromHwnd(owner); hook = HandleMenuMessage;
             if (source != null) source.AddHook(hook);
             SetForegroundWindow(owner);

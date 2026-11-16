@@ -2,6 +2,14 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.6.0
+
+- Show the WSL distribution and Linux user below each box title.
+- Add back and forward buttons and refine the collapse and expand icons.
+- Open the current or selected folder in the Windows default terminal and copy Linux paths from the file menu.
+- Offer a manual X11 retry after a detected Linux application startup failure.
+- Show the About window on the Windows taskbar.
+
 ## 1.5.1
 
 - Report early Linux application startup failures with the exit status and any captured error details.

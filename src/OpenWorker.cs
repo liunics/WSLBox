@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 
 namespace WSLBox
 {
+    internal sealed class ApplicationStartupException : IOException
+    {
+        public ApplicationStartupException(string message) : base(message) { }
+    }
+
     [DataContract]
     internal sealed class OpenRequest
     {
@@ -14,6 +19,7 @@ namespace WSLBox
         [DataMember(EmitDefaultValue = false)] public string Path;
         [DataMember(EmitDefaultValue = false)] public string Application;
         [DataMember(EmitDefaultValue = false)] public bool SetDefault;
+        [DataMember(EmitDefaultValue = false)] public bool UseX11;
         [DataMember(EmitDefaultValue = false)] public bool ShowHidden;
         [DataMember(EmitDefaultValue = false)] public string Revision;
     }
@@ -46,7 +52,11 @@ namespace WSLBox
                 Stop(); throw new IOException(L10n.T("ui.the_linux_request_channel_exited") + error);
             }
             Reply reply = Json.Read<Reply>(line);
-            if (!String.IsNullOrEmpty(reply.Error)) throw new IOException(reply.Error);
+            if (!String.IsNullOrEmpty(reply.Error))
+            {
+                if (reply.StartupFailed) throw new ApplicationStartupException(reply.Error);
+                throw new IOException(reply.Error);
+            }
             return reply;
         }
         private void EnsureStarted()
@@ -81,9 +91,9 @@ namespace WSLBox
             }
             catch { Stop(); throw; }
         }
-        public Reply Open(string path, string application = null, bool setDefault = false)
-        { return Request("open", path, application, setDefault); }
-        public Reply Request(string command, string path, string application = null, bool setDefault = false, bool showHidden = false, string revision = null)
+        public Reply Open(string path, string application = null, bool setDefault = false, bool useX11 = false)
+        { return Request("open", path, application, setDefault, useX11: useX11); }
+        public Reply Request(string command, string path, string application = null, bool setDefault = false, bool showHidden = false, string revision = null, bool useX11 = false)
         {
             lock (gate)
             {
@@ -98,7 +108,7 @@ namespace WSLBox
                     }
                     try
                     {
-                        byte[] request = Encoding.UTF8.GetBytes(Json.Write(new OpenRequest { Command = command, Path = path, Application = application, SetDefault = setDefault, ShowHidden = showHidden, Revision = revision }) + "\n");
+                        byte[] request = Encoding.UTF8.GetBytes(Json.Write(new OpenRequest { Command = command, Path = path, Application = application, SetDefault = setDefault, UseX11 = useX11, ShowHidden = showHidden, Revision = revision }) + "\n");
                         current.StandardInput.BaseStream.Write(request, 0, request.Length);
                         current.StandardInput.BaseStream.Flush();
                         return ReadReply(current, stderr, (command == "trash" || command == "restore-trash" || command == "purge-trash") ? 120000 : mode == "serve-open" ? 16000 : 20000);

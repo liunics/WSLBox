@@ -395,7 +395,7 @@ def thumbnail_batch(value):
     return {"Thumbnails": result, "Icons": list(icons.images.values())}
 
 
-def detached_handler(handler, gio, glib):
+def detached_handler(handler, gio, glib, use_x11=False):
     """Non-D-Bus GUI children must outlive the short wsl.exe request session."""
     desktop_type = getattr(gio, "DesktopAppInfo", None)
     if desktop_type is None or not isinstance(handler, desktop_type):
@@ -410,11 +410,13 @@ def detached_handler(handler, gio, glib):
     keyfile.load_from_file(filename, glib.KeyFileFlags.NONE)
     # A keyfile-created app has no desktop filename for expansion of %k.
     command = command.replace("%k", glib.shell_quote(filename))
+    if use_x11:
+        command = "/usr/bin/env GDK_BACKEND=x11 " + command
     keyfile.set_string("Desktop Entry", "Exec", "/usr/bin/setsid --fork --wait -- " + command)
     return gio.DesktopAppInfo.new_from_keyfile(keyfile) or handler
 
 
-def open_linux(value, application=None, set_default=False):
+def open_linux(value, application=None, set_default=False, use_x11=False):
     ensure_wslg_session()
     from gi.repository import Gio, GLib
 
@@ -432,7 +434,11 @@ def open_linux(value, application=None, set_default=False):
             content_type = info.get_content_type()
             if not content_type or not handler.set_as_default_for_type(content_type):
                 raise ValueError(tr("backend.could_not_set_the_linux_default_application_for_this_file_type"))
-    return launch_request(handler, uri, Gio, GLib)
+    return launch_request(handler, uri, Gio, GLib, use_x11) if use_x11 else launch_request(handler, uri, Gio, GLib)
+
+
+class ApplicationStartupError(RuntimeError):
+    pass
 
 
 def check_application_startup(handler, uri, GLib):
@@ -482,13 +488,15 @@ def check_application_startup(handler, uri, GLib):
                 lines = [line.strip() for line in raw.decode("utf-8", errors="replace").splitlines() if line.strip()]
                 if lines:
                     message += "\n" + "\n".join(lines[-6:])[-1200:]
-                raise RuntimeError(message)
+                raise ApplicationStartupError(message)
 
 
-def launch_request(handler, uri, Gio, GLib):
+def launch_request(handler, uri, Gio, GLib, use_x11=False):
     original = handler
     if handler is not None:
-        handler = detached_handler(handler, Gio, GLib)
+        handler = detached_handler(handler, Gio, GLib, use_x11)
+    if use_x11 and handler is original:
+        raise RuntimeError(tr("backend.x11_retry_unavailable"))
     # GUI children must neither consume the private request channel nor inherit
     # response pipes that could keep a short-lived request waiting for EOF.
     sys.stdout.flush()
@@ -763,7 +771,7 @@ def list_trash(directory=None):
     return {"Entries": entries, "Icons": list(icons.images.values())}
 
 
-def open_trashed_file(token):
+def open_trashed_file(token, use_x11=False):
     from gi.repository import Gio, GLib
     kind, parts, item = trash_location(token)
     flags = Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS
@@ -771,8 +779,8 @@ def open_trashed_file(token):
         raise ValueError(tr("backend.invalid_file_operation_request"))
     local = trash_local_path(kind, parts, item)
     if local:
-        return open_linux(local)
-    return launch_request(item.query_default_handler(None), item.get_uri(), Gio, GLib)
+        return open_linux(local, use_x11=use_x11)
+    return launch_request(item.query_default_handler(None), item.get_uri(), Gio, GLib, use_x11)
 
 
 def change_trash(command, payload):
@@ -893,8 +901,9 @@ def main(argv, show_hidden=False):
             raise ValueError(tr("backend.trash_folder_missing"))
         return {"Path": path}
     if command == "info":
+        import pwd
         return {"Distro": os.environ.get("WSL_DISTRO_NAME", ""),
-                "Home": os.path.expanduser("~")}
+                "Home": os.path.expanduser("~"), "User": pwd.getpwuid(os.geteuid()).pw_name}
     if command == "folder-info" and len(argv) == 2:
         path = folder_path(argv[1])
         try:
@@ -932,6 +941,9 @@ def serve_open():
             if not isinstance(request, dict):
                 raise ValueError("Invalid open request")
             command = request.get("Command", "open")
+            use_x11 = request.get("UseX11", False)
+            if not isinstance(use_x11, bool):
+                raise ValueError("Invalid X11 launch flag")
             if command in ("open-trash", "list-trash", "trash-folder", "open-trashed-file", "restore-trash", "purge-trash"):
                 path = request.get("Path")
                 if command == "open-trash":
@@ -941,7 +953,7 @@ def serve_open():
                 elif command == "trash-folder":
                     response = main([command, path])
                 elif command == "open-trashed-file":
-                    response = open_trashed_file(path)
+                    response = open_trashed_file(path, use_x11)
                 else:
                     response = change_trash(command, path)
                 print(json.dumps(response, ensure_ascii=False), flush=True)
@@ -956,7 +968,9 @@ def serve_open():
                 raise ValueError("Invalid application ID")
             if not isinstance(request.get("SetDefault", False), bool):
                 raise ValueError("Invalid default application flag")
-            response = open_linux(request["Path"], application, request.get("SetDefault", False))
+            response = open_linux(request["Path"], application, request.get("SetDefault", False), use_x11)
+        except ApplicationStartupError as exc:
+            response = {"Error": str(exc), "StartupFailed": True}
         except Exception as exc:
             response = {"Error": str(exc)}
         print(json.dumps(response, ensure_ascii=False), flush=True)

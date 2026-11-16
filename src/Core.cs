@@ -44,9 +44,11 @@ namespace WSLBox
     {
         [DataMember] public string Distro;
         [DataMember] public string Home;
+        [DataMember(EmitDefaultValue = false)] public string User;
         [DataMember] public string[] Users;
         [DataMember] public string Path;
         [DataMember] public string Error;
+        [DataMember(EmitDefaultValue = false)] public bool StartupFailed;
         [DataMember] public string InputMethodWarning;
         [DataMember] public Entry[] Entries;
         [DataMember] public string Revision;
@@ -341,9 +343,14 @@ namespace WSLBox
             using (var hash = System.Security.Cryptography.SHA256.Create())
                 scriptKey = Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(script)));
         }
-        public Task<Reply> OpenWith(string distro, string path, string application, bool setDefault)
+        public Task<Reply> OpenWith(string distro, string path, string application, bool setDefault, bool useX11 = false)
         {
-            return Task.Run(() => Worker(distro).Open(path, application, setDefault));
+            return Task.Run(() => Worker(distro).Open(path, application, setDefault, useX11));
+        }
+
+        public Task<Reply> OpenTrashed(string distro, string token, bool useX11 = false)
+        {
+            return Task.Run(() => Worker(distro).Request("open-trashed-file", token, useX11: useX11));
         }
 
         public Task<Reply> Run(string distro, string command, string path, bool showHidden = false, string revision = null)

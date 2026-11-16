@@ -171,9 +171,23 @@ namespace WSLBox
                         draw.DrawEllipse(null, pen, new Point(3, y), 1.2, 1.2);
                         draw.DrawLine(pen, new Point(8, y), new Point(18, y));
                     }
-                else throw new System.ArgumentException("Unknown header icon.", "kind");
+                else
+                {
+                    string path;
+                    switch (kind)
+                    {
+                        case "back": path = "M12,5 L7,10 12,15"; break;
+                        case "forward": path = "M8,5 L13,10 8,15"; break;
+                        case "collapse": path = "M4,12 L10,8 16,12"; break;
+                        case "expand": path = "M4,8 L10,12 16,8"; break;
+                        default: throw new System.ArgumentException("Unknown header icon.", "kind");
+                    }
+                    pen.StartLineCap = pen.EndLineCap = PenLineCap.Round;
+                    pen.LineJoin = PenLineJoin.Round;
+                    draw.DrawGeometry(null, pen, Geometry.Parse(path));
+                }
             }
-            // A fixed canvas keeps both mode icons aligned within the header.
+            // A fixed canvas keeps the icons aligned within the header.
             group.Children.Insert(0, new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 20, 20))));
             group.Freeze(); var image = new DrawingImage(group); image.Freeze();
             return new System.Windows.Controls.Image { Source = image, Width = 20, Height = 20 };

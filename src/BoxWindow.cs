@@ -54,7 +54,14 @@ namespace WSLBox
         private readonly FolderHistory history = new FolderHistory();
         private readonly Border plate = new Border();
         private readonly Grid body = new Grid();
-        private readonly TextBlock title = new TextBlock();
+        private readonly TextBlock title = new TextBlock { TextTrimming = TextTrimming.CharacterEllipsis };
+        private readonly TextBlock environmentLabel = new TextBlock {
+            FontSize = 10, Foreground = Theme.Muted, TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        private readonly StackPanel caption = new StackPanel {
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 8, 0)
+        };
+        private string activeLinuxUser;
         private readonly TextBlock status = new TextBlock();
         private readonly ListBox list = new ListBox();
         private readonly WrapPanel filters = new WrapPanel();
@@ -67,7 +74,9 @@ namespace WSLBox
         private readonly ResizeGrip grip = new ResizeGrip();
         private readonly Button viewButton;
         private readonly Button lockButton;
-        private readonly Button collapseButton;
+        private readonly Button collapseButton, backButton, forwardButton;
+        private readonly Image collapseIcon = Theme.HeaderIcon("collapse");
+        private readonly Image expandIcon = Theme.HeaderIcon("expand");
         private readonly DispatcherTimer refreshTimer = new DispatcherTimer();
         private readonly DispatcherTimer noticeTimer = new DispatcherTimer();
         private readonly DispatcherTimer hoverTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(120) };
@@ -148,26 +157,37 @@ namespace WSLBox
             plate.Child = layout; outer.Children.Add(plate); Content = outer;
 
             var header = new Grid { Height = 34, Background = Brushes.Transparent, Margin = new Thickness(0, 0, rightInset, 0) };
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition());
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            title.VerticalAlignment = VerticalAlignment.Center;
-            title.TextTrimming = TextTrimming.CharacterEllipsis;
-            title.Margin = new Thickness(4, 0, 8, 0); header.Children.Add(title);
-            var actions = new StackPanel { Orientation = Orientation.Horizontal };
-            Grid.SetColumn(actions, 1); header.Children.Add(actions);
-            var copyLinuxPath = HeaderButton(actions, "\uE8C8", L10n.T("ui.copy_current_folder_s_linux_path"), async () => {
-                string path = currentFolder;
-                if (!String.IsNullOrEmpty(path))
-                    await WriteClipboard(() => Clipboard.SetText(path), L10n.T("ui.linux_path_copied"));
-            });
+            var navigation = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            header.Children.Add(navigation);
+            backButton = HeaderButton(navigation, "", L10n.T("help.back") + " (Alt+←)", () => HistoryNavigate(false));
+            forwardButton = HeaderButton(navigation, "", L10n.T("help.forward") + " (Alt+→)", () => HistoryNavigate(true));
+            backButton.Width = forwardButton.Width = 22;
+            backButton.Content = Theme.HeaderIcon("back");
+            forwardButton.Content = Theme.HeaderIcon("forward");
+            UpdateHistoryButtons();
+            Grid.SetColumn(caption, 1);
+            caption.Children.Add(title);
+            caption.Children.Add(environmentLabel);
+            header.Children.Add(caption);
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(actions, 2); header.Children.Add(actions);
+            var copyLinuxPath = HeaderButton(actions, "\uE8C8", L10n.T("ui.copy_current_folder_s_linux_path"),
+                () => CopyLinuxPaths(new[] { currentFolder }));
             copyLinuxPath.FontFamily = new FontFamily("Segoe MDL2 Assets"); copyLinuxPath.FontSize = 16;
+            var terminalButton = HeaderButton(actions, ">_", L10n.T("ui.open_in_terminal"), () => { OpenTerminal(); return Done(); });
+            terminalButton.FontFamily = new FontFamily("Consolas");
+            terminalButton.FontSize = 14;
+            System.Windows.Automation.AutomationProperties.SetName(terminalButton, L10n.T("ui.open_in_terminal"));
             viewButton = HeaderButton(actions, "", L10n.T("ui.switch_icons_list"), () => { SetView(settings.ViewMode == "icons" ? "list" : "icons"); return Done(); });
             lockButton = HeaderButton(actions, "◇", L10n.T("ui.lock_position_and_size"), () => { settings.Locked = !settings.Locked; ApplyAppearance(); Persist(); return Done(); });
             HeaderButton(actions, "+", L10n.T("ui.new_box"), () => { NewBox(); return Done(); });
             Button more = null;
             more = HeaderButton(actions, "☰", L10n.T("ui.menu_and_help"), () => { ShowBoxMenu(more); return Done(); });
             menu.PlacementTarget = more; menu.Placement = PlacementMode.Bottom;
-            collapseButton = HeaderButton(actions, "⌃", L10n.T("ui.collapse_expand"), () => { ToggleCollapsed(); return Done(); });
+            collapseButton = HeaderButton(actions, "", L10n.T("ui.collapse_expand"), () => { ToggleCollapsed(); return Done(); });
             header.MouseLeftButtonDown += (s, e) => {
                 if (Ancestor<Button>(e.OriginalSource as DependencyObject) != null) return;
                 if (e.ClickCount == 2)
@@ -285,6 +305,7 @@ namespace WSLBox
                     {
                         SetTrashVisible(false);
                         history.Record(currentFolder);
+                        UpdateHistoryButtons();
                     }
                     settings.Filter = key;
                     ApplyFilter();
@@ -562,6 +583,7 @@ namespace WSLBox
         private Button HeaderButton(Panel parent, string glyph, string tooltip, Func<Task> action)
         {
             var button = new Button { Content = glyph, ToolTip = tooltip, Style = (Style)Resources["HeaderButton"] };
+            System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
             button.Click += async (s, e) => { try { await action(); } catch (Exception ex) { Report(ex); } };
             parent.Children.Add(button); return button;
         }
@@ -608,7 +630,9 @@ namespace WSLBox
             AddMenu(menu, L10n.T("ui.folder_settings_ctrl_l_2db86b"), async () => await Configure());
             AddMenu(menu, L10n.T("ui.bound_folder_alt_home_9134c1"), async () => await Home());
             AddMenu(menu, L10n.T("ui.new_folder_ctrl_shift_n_1157ef"), async () => await NewFolder());
-            AddMenu(menu, L10n.T("ui.open_linux_trash"), async () => await OpenTrash());
+            var terminal = AddMenu(menu, L10n.T("ui.open_in_terminal"), () => { OpenTerminal(); return Done(); });
+            menu.Opened += (s, e) => terminal.IsEnabled = initialized && !closing && !showingTrash;
+            AddMenu(menu, L10n.T("ui.open_linux_trash"), OpenTrash);
             menu.Items.Add(new Separator());
             var views = new MenuItem { Header = L10n.T("ui.view") };
             var sorts = new MenuItem { Header = L10n.T("ui.sort_by") };
@@ -718,15 +742,26 @@ namespace WSLBox
             var files = fileMenu;
             MenuItem open = AddMenu(files, L10n.T("ui.open_with_linux_default_app"), async () => await OpenSelected());
             MenuItem openWith = AddMenu(files, L10n.T("ui.linux_open_with"), async () => await OpenWithSelected());
+            MenuItem folderTerminal = AddMenu(files, L10n.T("ui.open_in_terminal"), () =>
+            {
+                string path = SelectedTerminalFolder(list.SelectedItems.Cast<FileModel>().ToArray());
+                if (path != null) OpenTerminal(path);
+                return Done();
+            });
+            MenuItem copyPath = AddMenu(files, L10n.T("ui.copy_linux_path"),
+                () => CopyLinuxPaths(list.SelectedItems.Cast<FileModel>().Select(model => model.Path)));
             MenuItem rename = AddMenu(files, L10n.T("ui.rename_f2_0b5144"), async () => await RenameSelected());
             MenuItem trash = AddMenu(files, L10n.T("ui.move_to_linux_trash_delete_725a71"), async () => await DeleteSelected(false));
-            AddMenu(files, L10n.T("ui.open_linux_trash"), async () => await OpenTrash());
             AddMenu(files, L10n.T("ui.new_folder_ctrl_shift_n_1157ef"), async () => await NewFolder());
             files.Items.Add(new Separator());
             MenuItem copy = AddMenu(files, L10n.T("ui.copy_ctrl_c"), () => CopySelected(false));
             MenuItem cut = AddMenu(files, L10n.T("ui.cut_ctrl_x"), () => CopySelected(true));
             MenuItem paste = AddMenu(files, L10n.T("ui.paste_ctrl_v"), async () => await Paste());
             files.Opened += (s, e) => {
+                folderTerminal.Visibility = SelectedTerminalFolder(list.SelectedItems.Cast<FileModel>().ToArray()) != null
+                    ? Visibility.Visible : Visibility.Collapsed;
+                folderTerminal.IsEnabled = initialized && !busy;
+                copyPath.IsEnabled = initialized && list.SelectedItems.Count > 0;
                 open.IsEnabled = copy.IsEnabled = cut.IsEnabled = initialized && !busy && list.SelectedItems.Count > 0;
                 openWith.IsEnabled = initialized && !busy && list.SelectedItems.Count == 1;
                 trash.IsEnabled = initialized && !busy && list.SelectedItems.Count > 0;
@@ -815,12 +850,13 @@ namespace WSLBox
             }
             if (busy || !initialized) return;
             string[] paths = selected.Select(m => Paths.Unc(settings.Distro, m.Path)).ToArray();
+            string terminalFolder = SelectedTerminalFolder(selected);
             ShellMenuAction action = ShellMenuAction.None;
             bool failed = false;
             contextOpen = true;
             try
             {
-                action = ShellContextMenu.Show(this, screen, paths, Paths.Unc(settings.Distro, currentFolder));
+                action = ShellContextMenu.Show(this, screen, paths, Paths.Unc(settings.Distro, currentFolder), terminalFolder != null);
             }
             catch (ShellMenuInvocationException ex)
             {
@@ -845,10 +881,20 @@ namespace WSLBox
                 fileMenu.IsOpen = true;
                 return;
             }
+            if (action == ShellMenuAction.CopyLinuxPath)
+            {
+                try { await CopyLinuxPaths(selected.Select(model => model.Path)); }
+                catch (Exception ex) { Report(ex); }
+                return;
+            }
+            if (action == ShellMenuAction.OpenTerminal)
+            {
+                if (terminalFolder != null) OpenTerminal(terminalFolder);
+                return;
+            }
             if (action == ShellMenuAction.OpenWithLinux) await OpenWithSelected();
             else if (action == ShellMenuAction.Trash || action == ShellMenuAction.PermanentDelete) await DeleteSelected(action == ShellMenuAction.PermanentDelete);
             else if (action == ShellMenuAction.Rename) await RenameSelected();
-            else if (action == ShellMenuAction.OpenTrash) await OpenTrash();
             else if (action == ShellMenuAction.OpenLinux) await OpenItems(selected);
             await RefreshFolder(false);
         }
@@ -1019,10 +1065,17 @@ namespace WSLBox
             string path = (currentFolder ?? "").TrimEnd('/');
             title.Text = !String.IsNullOrWhiteSpace(settings.Title) ? settings.Title :
                 path.Length == 0 ? (String.IsNullOrEmpty(settings.Distro) ? L10n.T("ui.folder_box") : settings.Distro) : path.Split('/').Last();
-            title.ToolTip = settings.Distro + L10n.T("ui.current_folder") + currentFolder + L10n.T("ui.bound_folder") + settings.Folder + "\n" + models.Count + L10n.T("ui.items");
+            string user = activeLinuxUser ?? settings.LinuxUser;
+            environmentLabel.Text = String.IsNullOrEmpty(user) ? settings.Distro : settings.Distro + " · " + user;
+            string environmentDetails = environmentLabel.Text;
+            if (!String.IsNullOrEmpty(activeLinuxUser) && String.IsNullOrEmpty(settings.LinuxUser))
+                environmentDetails += " (" + L10n.T("ui.default_linux_user") + ")";
+            caption.ToolTip = title.Text + "\n" + environmentDetails + L10n.T("ui.current_folder") + currentFolder
+                + L10n.T("ui.bound_folder") + settings.Folder + "\n" + models.Count + L10n.T("ui.items");
             if (status.Visibility == Visibility.Visible && !String.IsNullOrEmpty(status.Text)
                 && status.Text != models.Count + L10n.T("ui.items"))
-                title.ToolTip = Convert.ToString(title.ToolTip) + "\n\n" + status.Text;
+                caption.ToolTip = Convert.ToString(caption.ToolTip) + "\n\n" + status.Text;
+            title.ToolTip = caption.ToolTip;
             Title = "WSLBox · " + title.Text;
         }
         private void ApplyBackgroundOpacity()
@@ -1038,7 +1091,7 @@ namespace WSLBox
             lockButton.FontSize = 16;
             lockButton.Content = settings.Locked ? "\uE72E" : "\uE785";
             lockButton.ToolTip = settings.Locked ? L10n.T("ui.locked_click_to_unlock_position_and_size") : L10n.T("ui.lock_position_and_size");
-            collapseButton.Content = Collapsed ? "⌄" : "⌃";
+            collapseButton.Content = Collapsed ? expandIcon : collapseIcon;
             body.Visibility = Collapsed ? Visibility.Collapsed : Visibility.Visible;
             grip.Visibility = Collapsed || settings.Locked ? Visibility.Collapsed : Visibility.Visible;
             ResizeMode = settings.Locked || Collapsed ? ResizeMode.NoResize : ResizeMode.CanResizeWithGrip;
@@ -1535,13 +1588,15 @@ namespace WSLBox
                 if (String.IsNullOrEmpty(settings.Distro)) settings.Distro = info.Distro;
                 if (String.IsNullOrEmpty(settings.Folder)) settings.Folder = info.Home;
                 currentFolder = settings.Folder;
+                activeLinuxUser = info.User;
+                UpdateTitle();
                 initialized = true;
                 wsl.PrepareOpen(settings.Distro);
             }
             catch (Exception ex) { Report(ex); }
             finally { busy = false; }
             if (closing) return;
-            if (initialized) { await RefreshFolder(true); history.Reset(currentFolder); }
+            if (initialized) { await RefreshFolder(true); history.Reset(currentFolder); UpdateHistoryButtons(); }
             refreshTimer.Start();
         }
         private async Task RefreshFolder(bool explicitRequest)
@@ -1617,11 +1672,18 @@ namespace WSLBox
                 if (historyStep < 0) history.CommitBack();
                 else if (historyStep > 0) history.CommitForward();
                 else history.Record(trash ? path : reply.Path);
+                UpdateHistoryButtons();
                 Persist(); Notify((reply.Entries ?? new Entry[0]).Length + L10n.T("ui.items")); return true;
             }
             catch (Exception ex) { Report(ex); return false; }
             finally { busy = false; }
         }
+        private void UpdateHistoryButtons()
+        {
+            backButton.IsEnabled = history.BackTarget != null;
+            forwardButton.IsEnabled = history.ForwardTarget != null;
+        }
+
         private async Task HistoryNavigate(bool forward)
         {
             string target = forward ? history.ForwardTarget : history.BackTarget;
@@ -1643,17 +1705,19 @@ namespace WSLBox
             try
             {
                 var selected = new WslClient(backendPath, dialog.LinuxUser);
+                Reply info = await selected.Run(dialog.Distro, "info", null);
                 Reply reply = await selected.Run(dialog.Distro, ListCommand, dialog.Folder, settings.ShowHidden);
                 if (closing) return;
                 ++thumbnailGeneration;
                 listedEntries = null;
                 wsl = selected;
                 settings.LinuxUser = dialog.LinuxUser;
+                activeLinuxUser = info.User;
                 settings.Distro = dialog.Distro; settings.Title = dialog.BoxTitle; settings.Folder = reply.Path;
                 settings.ShowTrashTab = dialog.ShowTrashTab;
                 trashTab.Visibility = dialog.ShowTrashTab ? Visibility.Visible : Visibility.Collapsed;
                 wsl.PrepareOpen(settings.Distro);
-                initialized = true; SetTrashVisible(false); ShowEntries(reply); history.Reset(reply.Path); Persist(); Notify(models.Count + L10n.T("ui.items"));
+                initialized = true; SetTrashVisible(false); ShowEntries(reply); history.Reset(reply.Path); UpdateHistoryButtons(); Persist(); Notify(models.Count + L10n.T("ui.items"));
             }
             catch (Exception ex) { Report(ex); }
             finally { busy = false; }
@@ -1678,9 +1742,10 @@ namespace WSLBox
                 string application = L10n.T("ui.linux_default_application"), inputWarning = null;
                 foreach (FileModel model in selected)
                 {
-                    Reply reply = model.Entry.TrashId == null
-                        ? await wsl.Run(settings.Distro, "open", model.Path)
-                        : await wsl.Run(settings.Distro, "open-trashed-file", model.Entry.TrashId);
+                    Reply reply = await OpenWithX11Retry(useX11 => model.Entry.TrashId == null
+                        ? wsl.OpenWith(settings.Distro, model.Path, null, false, useX11)
+                        : wsl.OpenTrashed(settings.Distro, model.Entry.TrashId, useX11));
+                    if (reply == null) return;
                     if (!reply.Ok) throw new IOException(L10n.T("ui.the_linux_default_app_did_not_acknowledge_the_request"));
                     if (!String.IsNullOrEmpty(reply.Application)) application = reply.Application;
                     if (!String.IsNullOrEmpty(reply.InputMethodWarning)) inputWarning = reply.InputMethodWarning;
@@ -1742,6 +1807,21 @@ namespace WSLBox
             else return;
             e.Handled = true;
         }
+        private async Task<Reply> OpenWithX11Retry(Func<bool, Task<Reply>> open)
+        {
+            try { return await open(false); }
+            catch (ApplicationStartupException ex)
+            {
+                if (closing) return null;
+                Notify(L10n.T("ui.operation_failed") + ex.Message);
+                if (MessageBox.Show(this, ex.Message + "\n\n" + L10n.T("ui.retry_with_x11"),
+                    "WSLBox", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+                    return null;
+            }
+            Notify(L10n.T("ui.retrying_with_x11"), false);
+            return await open(true);
+        }
+
         private async Task OpenWithSelected()
         {
             if (busy || opening || !initialized || IsContextMenuOpen || list.SelectedItems.Count != 1) return;
@@ -1752,7 +1832,9 @@ namespace WSLBox
                 var dialog = new OpenWithDialog(this, wsl, settings.Distro, model.Path);
                 if (dialog.ShowDialog() != true) return;
                 Notify(L10n.T("ui.opening_with_the_selected_linux_app"), false);
-                Reply reply = await wsl.OpenWith(settings.Distro, model.Path, dialog.ApplicationId, dialog.SetDefault);
+                Reply reply = await OpenWithX11Retry(useX11 =>
+                    wsl.OpenWith(settings.Distro, model.Path, dialog.ApplicationId, !useX11 && dialog.SetDefault, useX11));
+                if (reply == null) return;
                 if (!reply.Ok) throw new IOException(L10n.T("ui.the_linux_app_did_not_acknowledge_the_request"));
                 Notify((reply.Application ?? L10n.T("ui.linux_application")) + L10n.T("ui.accepted_the_open_request") + (String.IsNullOrEmpty(reply.InputMethodWarning) ? "" : " " + reply.InputMethodWarning));
             }
@@ -1968,6 +2050,12 @@ namespace WSLBox
             }
             catch (Exception ex) { Report(ex); }
         }
+        private Task CopyLinuxPaths(IEnumerable<string> paths)
+        {
+            string text = String.Join(Environment.NewLine, paths.Where(path => !String.IsNullOrEmpty(path)));
+            return text.Length == 0 ? Done() : WriteClipboard(() => Clipboard.SetText(text), L10n.T("ui.linux_path_copied"));
+        }
+
         private async Task WriteClipboard(Action write, string success)
         {
             int version = ++clipboardWriteVersion;
@@ -2021,6 +2109,24 @@ namespace WSLBox
             }
             catch (Exception ex) { if (!closing && showingTrash && client == wsl) Report(ex); }
         }
+        private static string SelectedTerminalFolder(FileModel[] selected)
+        {
+            return selected.Length == 1 && selected[0].Entry.IsDirectory ? selected[0].Path : null;
+        }
+
+        private void OpenTerminal(string folder = null)
+        {
+            folder = folder ?? currentFolder;
+            if (!initialized || closing || showingTrash || String.IsNullOrEmpty(folder)) return;
+            string arguments = WslClient.LaunchOptions(settings.Distro, settings.LinuxUser)
+                + "--cd " + Paths.Quote(folder);
+            try
+            {
+                using (Process.Start(new ProcessStartInfo("wsl.exe", arguments) { UseShellExecute = true })) { }
+            }
+            catch (Exception ex) { Report(ex); }
+        }
+
         private void Reveal()
         {
             if (!initialized) return;

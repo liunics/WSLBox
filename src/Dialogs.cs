@@ -229,7 +229,7 @@ namespace WSLBox
         {
             var window = new Window { Title = L10n.T("ui.about"), Icon = Branding.Image, Width = 510, MinWidth = 360,
                 SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
-                ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                ShowInTaskbar = true, WindowStartupLocation = WindowStartupLocation.CenterOwner };
             Theme.ApplyPanelTheme(window);
             PlaceDialog(window, owner);
             var layout = new StackPanel { Margin = new Thickness(24) };

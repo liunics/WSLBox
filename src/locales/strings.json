@@ -51,6 +51,18 @@
     "zh-CN": "Linux 用户名无效。",
     "en-US": "Invalid Linux user name."
   },
+  "ui.retry_with_x11": {
+    "zh-CN": "要用 X11 重试吗？",
+    "en-US": "Retry using X11?"
+  },
+  "ui.retrying_with_x11": {
+    "zh-CN": "正在用 X11 重试…",
+    "en-US": "Retrying with X11…"
+  },
+  "backend.x11_retry_unavailable": {
+    "zh-CN": "无法为这个应用的启动方式指定 X11。",
+    "en-US": "X11 cannot be specified for this application’s launch method."
+  },
   "backend.application_startup_exit": {
     "zh-CN": "{0} 启动后异常退出（状态码 {1}）。",
     "en-US": "{0} exited during startup (status {1})."
@@ -354,6 +366,14 @@
   "ui.move_to_linux_trash_delete": {
     "zh-CN": "移到 Linux 回收站\tDelete",
     "en-US": "Move to Linux Trash\tDelete"
+  },
+  "ui.copy_linux_path": {
+    "zh-CN": "复制 Linux 路径",
+    "en-US": "Copy Linux path"
+  },
+  "ui.open_in_terminal": {
+    "zh-CN": "在终端中打开",
+    "en-US": "Open in Terminal"
   },
   "ui.open_linux_trash": {
     "zh-CN": "打开 Linux 回收站",
