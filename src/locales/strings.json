@@ -51,6 +51,10 @@
     "zh-CN": "Linux 用户名无效。",
     "en-US": "Invalid Linux user name."
   },
+  "backend.application_startup_exit": {
+    "zh-CN": "{0} 启动后异常退出（状态码 {1}）。",
+    "en-US": "{0} exited during startup (status {1})."
+  },
   "backend.trash_folder_missing": {
     "zh-CN": "此 Linux 用户的回收站目录尚未创建。",
     "en-US": "This Linux user’s Trash directory has not been created."

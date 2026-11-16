@@ -410,7 +410,7 @@ def detached_handler(handler, gio, glib):
     keyfile.load_from_file(filename, glib.KeyFileFlags.NONE)
     # A keyfile-created app has no desktop filename for expansion of %k.
     command = command.replace("%k", glib.shell_quote(filename))
-    keyfile.set_string("Desktop Entry", "Exec", "/usr/bin/setsid --fork -- " + command)
+    keyfile.set_string("Desktop Entry", "Exec", "/usr/bin/setsid --fork --wait -- " + command)
     return gio.DesktopAppInfo.new_from_keyfile(keyfile) or handler
 
 
@@ -435,7 +435,58 @@ def open_linux(value, application=None, set_default=False):
     return launch_request(handler, uri, Gio, GLib)
 
 
+def check_application_startup(handler, uri, GLib):
+    """Observe early process failures while preserving GIO launch semantics."""
+    import tempfile
+    import threading
+    import time
+
+    children = []
+
+    def started(_handler, pid, _data):
+        finished = threading.Event()
+        result = []
+
+        def reap():
+            try:
+                _, status = os.waitpid(pid, 0)
+                if os.WIFEXITED(status):
+                    result.append(os.WEXITSTATUS(status))
+                elif os.WIFSIGNALED(status):
+                    result.append(128 + os.WTERMSIG(status))
+            except ChildProcessError:
+                pass
+            finally:
+                finished.set()
+
+        threading.Thread(target=reap, daemon=True).start()
+        children.append((finished, result))
+
+    uris = uri if isinstance(uri, list) else [uri] if uri is not None else []
+    flags = GLib.SpawnFlags.DO_NOT_REAP_CHILD
+    launch_with_fds = getattr(handler, "launch_uris_as_manager_with_fds", None)
+    with tempfile.TemporaryFile() as stderr:
+        if launch_with_fds is not None:
+            launched = launch_with_fds(uris, None, flags, None, None, started, None, -1, -1, stderr.fileno())
+        else:
+            launched = handler.launch_uris_as_manager(uris, None, flags, None, None, started, None)
+        if not launched:
+            raise RuntimeError(tr("backend.the_default_application_did_not_accept_the_request"))
+        deadline = time.monotonic() + 0.8
+        for finished, result in children:
+            finished.wait(max(0, deadline - time.monotonic()))
+            if finished.is_set() and result and result[0]:
+                message = tr("backend.application_startup_exit").format(handler.get_display_name(), result[0])
+                length = os.fstat(stderr.fileno()).st_size
+                raw = os.pread(stderr.fileno(), 4096, max(0, length - 4096))
+                lines = [line.strip() for line in raw.decode("utf-8", errors="replace").splitlines() if line.strip()]
+                if lines:
+                    message += "\n" + "\n".join(lines[-6:])[-1200:]
+                raise RuntimeError(message)
+
+
 def launch_request(handler, uri, Gio, GLib):
+    original = handler
     if handler is not None:
         handler = detached_handler(handler, Gio, GLib)
     # GUI children must neither consume the private request channel nor inherit
@@ -447,7 +498,10 @@ def launch_request(handler, uri, Gio, GLib):
             os.dup2(sink.fileno(), 0)
             os.dup2(sink.fileno(), 1)
             os.dup2(sink.fileno(), 2)
-            await_application(Gio, GLib, handler, uri)
+            if handler is not original:
+                check_application_startup(handler, uri, GLib)
+            else:
+                await_application(Gio, GLib, handler, uri)
     finally:
         for fd, original in zip((0, 1, 2), saved):
             os.dup2(original, fd)

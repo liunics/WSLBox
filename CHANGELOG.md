@@ -2,6 +2,10 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.5.1
+
+- Report early Linux application startup failures with the exit status and any captured error details.
+
 ## 1.5.0
 
 - Use native Windows Shell drag and clipboard commands, with file names in live drag feedback.
