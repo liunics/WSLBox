@@ -2,6 +2,10 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.6.3
+
+- Restore boxes that Windows minimizes when their display is disconnected, then place them at the top center of the primary display. Reconnecting the original display restores their previous position and size.
+
 ## 1.6.2
 
 - Check for updates manually or opt into startup checks. Open the update notification to see the new version and install it as WSLBox.exe, with the startup shortcut updated when enabled.

@@ -31,6 +31,23 @@ namespace WSLBox
             }
             rectangle = Rect.Empty; return false;
         }
+        [DllImport("user32.dll", EntryPoint = "IsIconic")]
+        private static extern bool IsIconic(IntPtr window);
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr window, int command);
+
+        internal static bool IsMinimized(Window window)
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            return handle != IntPtr.Zero && IsIconic(handle);
+        }
+
+        internal static void RestoreIfMinimized(Window window)
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle != IntPtr.Zero && IsIconic(handle)) ShowWindow(handle, 4); // SW_SHOWNOACTIVATE
+        }
+
         private static Rect DeviceBounds(Window window, Rect logical)
         {
             var source = PresentationSource.FromVisual(window) as HwndSource;

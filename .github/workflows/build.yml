@@ -56,7 +56,7 @@ jobs:
           & (Join-Path $env:GITHUB_WORKSPACE '.github/build.ps1') -OutputDirectory build
           $build = Join-Path $env:GITHUB_WORKSPACE 'build'
           $output = Join-Path $build 'WSLBox.exe'
-          $version = (Get-Content -LiteralPath (Join-Path $build 'build-info.json') -Raw | ConvertFrom-Json).version
+          $version = (Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE '.local/build-artifacts/build/build-info.json') -Raw | ConvertFrom-Json).version
           $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($output))
           foreach($resource in @('WSLBox.Backend','WSLBox.Strings','WSLBox.AppIcon')) {
               if($assembly.GetManifestResourceNames() -notcontains $resource) { throw "Missing resource: $resource" }

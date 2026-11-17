@@ -995,10 +995,12 @@ namespace WSLBox
             Rect restored = temporaryPlacement ? WindowGeometry.TopCenterInWorkArea(remembered, work)
                 : WindowGeometry.Restore(remembered, work, null, 0, 0);
             var expected = new Rect(restored.Left, restored.Top, restored.Width, Collapsed ? 44 : restored.Height);
-            bool wasMinimized = WindowState == WindowState.Minimized;
+            bool wasMinimized = WindowState == WindowState.Minimized || WindowEffects.IsMinimized(this);
+            // Recover a box that was minimized during monitor relocation.
+            bool keepMinimized = wasMinimized && !temporaryPlacement && reconnected == null;
             bool moved = normalBounds != restored;
             if (!removed && reconnected == null && !moved && !settings.Maximized && settings.EdgeLayout == ""
-                && (wasMinimized || WindowEffects.BoundsMatch(this, expected))) return false;
+                && (keepMinimized || (!wasMinimized && WindowEffects.BoundsMatch(this, expected)))) return false;
 
             normalBounds = restored;
             StoreNormalBounds();
@@ -1007,10 +1009,11 @@ namespace WSLBox
             try
             {
                 WindowState = WindowState.Normal;
+                if (wasMinimized && !keepMinimized && IsVisible) WindowEffects.RestoreIfMinimized(this);
                 Left = restored.Left;
                 Top = restored.Top;
                 ApplyWindowLayout(work);
-                if (wasMinimized) WindowState = WindowState.Minimized;
+                if (keepMinimized) WindowState = WindowState.Minimized;
                 else if (WindowState == WindowState.Normal && !settings.Maximized && settings.EdgeLayout == "")
                     WindowEffects.ApplyBounds(this, expected);
             }
