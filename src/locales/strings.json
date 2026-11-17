@@ -1044,6 +1044,34 @@
     "zh-CN": "项目主页：",
     "en-US": "Project:"
   },
+  "about.auto_check_updates": {
+    "zh-CN": "启动时自动检查更新",
+    "en-US": "Automatically check for updates at startup"
+  },
+  "about.install_update": {
+    "zh-CN": "更新并重启",
+    "en-US": "Update and restart"
+  },
+  "about.downloading_update": {
+    "zh-CN": "正在下载并校验更新…",
+    "en-US": "Downloading and verifying the update…"
+  },
+  "about.update_invalid": {
+    "zh-CN": "更新文件或校验信息无效。",
+    "en-US": "The update file or checksum is invalid."
+  },
+  "about.update_destination_exists": {
+    "zh-CN": "程序目录中已存在 {0}。请将它移到其他位置后重试。",
+    "en-US": "{0} already exists in the application folder. Move it aside and retry."
+  },
+  "about.update_failed": {
+    "zh-CN": "更新失败：{0}",
+    "en-US": "Update failed: {0}"
+  },
+  "about.update_exit_timeout": {
+    "zh-CN": "等待 WSLBox 退出超时。",
+    "en-US": "Timed out waiting for WSLBox to exit."
+  },
   "about.check_updates": {
     "zh-CN": "检查更新",
     "en-US": "Check for updates"
@@ -1057,8 +1085,8 @@
     "en-US": "Checking for updates"
   },
   "about.new_version": {
-    "zh-CN": "发现新版本 v{0}，可前往发布页下载新版 EXE，退出后替换原文件；配置会保留。",
-    "en-US": "Version {0} is available. Download the new EXE, exit WSLBox, then replace the old file. Your settings are preserved."
+    "zh-CN": "发现新版本 v{0}。",
+    "en-US": "Version {0} is available."
   },
   "about.up_to_date": {
     "zh-CN": "当前已是最新版本 v{0}。",

@@ -22,6 +22,16 @@ namespace WSLBox
         public static void Main(string[] args)
         {
             L10n.Initialize("auto");
+            if (args.Length == 4 && args[0] == "--apply-update")
+            {
+                try { UpdateService.ApplyUpdate(Int32.Parse(args[1]), args[2], args[3]); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(L10n.F("about.update_failed", ex.Message), "WSLBox", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
 #if LOCAL_TESTS
             L10n.Initialize(args.Length > 0 && args[0] == "--preview-en" ? "en-US" : args.Length > 0 && args[0] != "--diagnose" ? "zh-CN" : "auto");
 #endif
@@ -86,7 +96,9 @@ namespace WSLBox
                     WorkspaceLayout layout = savedLayout;
                     using (var workspace = new BoxWorkspace(app, layout))
                     {
-                        workspace.OpenSaved(); app.Run();
+                        workspace.OpenSaved();
+                        app.Dispatcher.BeginInvoke(new Action(workspace.CheckForUpdatesInBackground));
+                        app.Run();
                     }
                 }
                 catch (Exception ex) { MessageBox.Show(ex.Message, L10n.T("ui.wslbox_startup_failed"), MessageBoxButton.OK, MessageBoxImage.Error); }
@@ -101,7 +113,21 @@ namespace WSLBox
         private readonly List<BoxForm> windows = new List<BoxForm>();
         private readonly Forms.NotifyIcon tray;
         private readonly System.Drawing.Icon trayIcon;
-        private bool exiting;
+        private bool exiting, checkingUpdates;
+        private Window aboutWindow;
+        private Version lastCheckedVersion;
+        internal event Action<Version> UpdateCheckCompleted;
+        internal Version LastCheckedVersion
+        {
+            get { return lastCheckedVersion; }
+            set
+            {
+                lastCheckedVersion = value;
+                var handler = UpdateCheckCompleted;
+                if (handler != null) handler(value);
+            }
+        }
+        private readonly CancellationTokenSource updateChecks = new CancellationTokenSource();
         private readonly DesktopToggle desktopToggle;
         private readonly System.Windows.Threading.DispatcherTimer displayChangeTimer;
         private int displayPlacementPass;
@@ -144,7 +170,8 @@ namespace WSLBox
             menu.Items.Add(language);
             menu.Items.Add(new Forms.ToolStripSeparator());
             menu.Items.Add(L10n.T("ui.help_and_shortcuts"), null, (s, e) => Dialogs.Help(windows.FirstOrDefault(w => w.IsVisible)));
-            menu.Items.Add(L10n.T("ui.about"), null, (s, e) => Dialogs.About(windows.FirstOrDefault(w => w.IsVisible)));
+            menu.Items.Add(L10n.T("ui.about"), null, (s, e) => ShowAbout());
+            tray.BalloonTipClicked += (s, e) => { if (!exiting) ShowAbout(fromNotification: true); };
             menu.Items.Add(L10n.T("ui.exit"), null, (s, e) => Exit());
             tray.ContextMenuStrip = menu;
             tray.DoubleClick += (s, e) => ShowAll();
@@ -152,6 +179,81 @@ namespace WSLBox
             displayChangeTimer.Tick += ApplyDisplayPlacement;
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         }
+        internal bool AutoCheckUpdates
+        {
+            get { return layout.AutoCheckUpdates; }
+            set
+            {
+                if (layout.AutoCheckUpdates == value) return;
+                layout.AutoCheckUpdates = value;
+                Save();
+                if (value) CheckForUpdatesInBackground();
+            }
+        }
+
+        internal void ShowAbout(Window owner = null, bool fromNotification = false)
+        {
+            if (aboutWindow != null)
+            {
+                if (fromNotification) ShowAboutInFront(aboutWindow);
+                else aboutWindow.Activate();
+                return;
+            }
+
+            var window = Dialogs.CreateAbout(fromNotification ? null : owner ?? windows.FirstOrDefault(box => box.IsVisible), this);
+            aboutWindow = window;
+            window.Closed += (sender, args) => aboutWindow = null;
+            if (fromNotification)
+            {
+                window.Topmost = true;
+                window.ContentRendered += (sender, args) => ShowAboutInFront(window);
+            }
+            window.ShowDialog();
+        }
+
+        private static void ShowAboutInFront(Window window)
+        {
+            window.Topmost = true;
+            window.Activate();
+            window.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (window.IsVisible) window.Topmost = false;
+            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        internal async void CheckForUpdatesInBackground()
+        {
+            if (!AutoCheckUpdates || checkingUpdates || exiting) return;
+            checkingUpdates = true;
+            try
+            {
+                var token = updateChecks.Token;
+                await System.Threading.Tasks.Task.Delay(1000, token);
+                if (!AutoCheckUpdates || exiting) return;
+                Version latest = await UpdateService.Check(token);
+                if (exiting || !AutoCheckUpdates) return;
+                LastCheckedVersion = latest;
+                if (latest > new Version(Branding.Version))
+                    tray.ShowBalloonTip(5000, "WSLBox", L10n.F("about.new_version", latest), Forms.ToolTipIcon.Info);
+            }
+            catch (OperationCanceledException) { }
+            catch (System.Net.WebException) { }
+            catch (InvalidDataException) { }
+            catch (System.Runtime.Serialization.SerializationException) { }
+            finally { checkingUpdates = false; }
+        }
+
+        internal void InstallUpdate(string staged)
+        {
+            if (exiting || windows.Any(window => !window.CanClose || window.EditingName))
+                throw new IOException(L10n.T("ui.wait_for_the_file_operation_to_finish_before_exiting"));
+            layout.Save();
+            UpdateService.StartInstaller(staged);
+            foreach (BoxForm window in windows) window.PrepareForClose();
+            exiting = true;
+            app.Shutdown();
+        }
+
         public string LanguagePreference { get { return L10n.Normalize(layout.Language); } }
         public void SetLanguage(string value)
         {
@@ -271,6 +373,7 @@ namespace WSLBox
         {
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             displayChangeTimer.Stop();
+            updateChecks.Cancel(); updateChecks.Dispose();
             desktopToggle.Dispose();
             tray.Visible = false;
             if (tray.ContextMenuStrip != null) tray.ContextMenuStrip.Dispose();

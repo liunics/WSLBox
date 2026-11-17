@@ -163,6 +163,7 @@ namespace WSLBox
         [DataMember] public int Version = 2;
         [DataMember] public string Language = "auto";
         [DataMember] public bool? DesktopDoubleClick = true;
+        [DataMember] public bool AutoCheckUpdates;
         [DataMember] public List<Settings> Boxes = new List<Settings>();
         public static string FilePath { get { return Path.Combine(Path.GetDirectoryName(Settings.FilePath), "layout.json"); } }
         public static WorkspaceLayout Load()

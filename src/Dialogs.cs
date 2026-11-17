@@ -225,7 +225,7 @@ namespace WSLBox
             };
             return dialog.ShowDialog() == true ? input.Text : null;
         }
-        internal static Window CreateAbout(Window owner)
+        internal static Window CreateAbout(Window owner, BoxWorkspace workspace = null)
         {
             var window = new Window { Title = L10n.T("ui.about"), Icon = Branding.Image, Width = 510, MinWidth = 360,
                 SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
@@ -262,22 +262,70 @@ namespace WSLBox
             var check = new Button { Content = L10n.T("about.check_updates"), Padding = new Thickness(12, 7, 12, 7) };
             var download = new Button { Content = L10n.T("about.download_update"), Padding = new Thickness(12, 7, 12, 7),
                 Margin = new Thickness(8, 0, 0, 0), Visibility = Visibility.Collapsed };
-            updateActions.Children.Add(check); updateActions.Children.Add(download);
+            var install = new Button { Content = L10n.T("about.install_update"), Padding = new Thickness(12, 7, 12, 7),
+                Margin = new Thickness(8, 0, 0, 0), Visibility = Visibility.Collapsed };
+            if (workspace != null)
+            {
+                var automatic = new CheckBox { Content = L10n.T("about.auto_check_updates"), IsChecked = workspace.AutoCheckUpdates,
+                    Margin = new Thickness(0, 16, 0, 0) };
+                automatic.Checked += (s, e) => workspace.AutoCheckUpdates = true;
+                automatic.Unchecked += (s, e) => workspace.AutoCheckUpdates = false;
+                layout.Children.Add(automatic);
+            }
+            updateActions.Children.Add(check); updateActions.Children.Add(install); updateActions.Children.Add(download);
             layout.Children.Add(updateActions); layout.Children.Add(updateStatus);
             var cancellation = new System.Threading.CancellationTokenSource();
             bool closed = false;
             window.Closed += (s, e) => { closed = true; cancellation.Cancel(); cancellation.Dispose(); };
             download.Click += (s, e) => openLink(UpdateService.ReleasesUrl);
+            Version available = null;
+            Action<Version> showCheckResult = latest =>
+            {
+                bool newer = latest > new Version(Branding.Version);
+                updateStatus.Text = newer ? L10n.F("about.new_version", latest) : L10n.F("about.up_to_date", Branding.Version);
+                available = newer ? latest : null;
+                install.Visibility = newer && workspace != null ? Visibility.Visible : Visibility.Collapsed;
+                download.Visibility = newer ? Visibility.Visible : Visibility.Collapsed;
+            };
+            if (workspace != null)
+            {
+                if (workspace.LastCheckedVersion != null) showCheckResult(workspace.LastCheckedVersion);
+                Action<Version> onBackgroundResult = latest =>
+                {
+                    if (!closed && check.IsEnabled) showCheckResult(latest);
+                };
+                workspace.UpdateCheckCompleted += onBackgroundResult;
+                window.Closed += (s, e) => workspace.UpdateCheckCompleted -= onBackgroundResult;
+            }
+            install.Click += async (s, e) =>
+            {
+                check.IsEnabled = install.IsEnabled = false;
+                updateStatus.Text = L10n.T("about.downloading_update");
+                string staged = null;
+                try
+                {
+                    staged = await UpdateService.Download(available, cancellation.Token);
+                    if (closed) return;
+                    workspace.InstallUpdate(staged);
+                    staged = null;
+                }
+                catch (Exception ex) { if (!closed) updateStatus.Text = L10n.F("about.update_failed", ex.GetBaseException().Message); }
+                finally
+                {
+                    UpdateService.TryDelete(staged);
+                    if (!closed) check.IsEnabled = install.IsEnabled = true;
+                }
+            };
             check.Click += async (s, e) => {
-                check.IsEnabled = false; download.Visibility = Visibility.Collapsed;
+                check.IsEnabled = false; download.Visibility = install.Visibility = Visibility.Collapsed;
+                available = null;
                 updateStatus.Text = L10n.T("about.checking");
                 try
                 {
                     Version latest = await UpdateService.Check(cancellation.Token);
                     if (closed) return;
-                    bool newer = latest > new Version(Branding.Version);
-                    updateStatus.Text = newer ? L10n.F("about.new_version", latest) : L10n.F("about.up_to_date", Branding.Version);
-                    download.Visibility = newer ? Visibility.Visible : Visibility.Collapsed;
+                    if (workspace != null) workspace.LastCheckedVersion = latest;
+                    showCheckResult(latest);
                 }
                 catch (Exception ex) { if (!closed) { updateStatus.Text = L10n.F("about.check_failed", ex.GetBaseException().Message); download.Visibility = Visibility.Visible; } }
                 finally { if (!closed) check.IsEnabled = true; }
@@ -285,7 +333,7 @@ namespace WSLBox
             window.PreviewKeyDown += (sender, e) => { if (e.Key == System.Windows.Input.Key.Escape) { window.Close(); e.Handled = true; } };
             window.Content = layout; return window;
         }
-        public static void About(Window owner) { CreateAbout(owner).ShowDialog(); }
+        public static void About(Window owner, BoxWorkspace workspace = null) { CreateAbout(owner, workspace).ShowDialog(); }
         internal static Window CreateHelp(Window owner)
         {
             var window = new Window { Title = L10n.T("ui.wslbox_help"), Width = 690,

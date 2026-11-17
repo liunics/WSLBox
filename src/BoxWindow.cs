@@ -748,7 +748,7 @@ namespace WSLBox
             AddMenu(menu, L10n.T("ui.close_this_box"), () => { Close(); return Done(); });
             menu.Items.Add(new Separator());
             AddMenu(menu, L10n.T("ui.help_and_shortcuts"), () => { Dialogs.Help(this); return Done(); });
-            AddMenu(menu, L10n.T("ui.about"), () => { Dialogs.About(this); return Done(); });
+            AddMenu(menu, L10n.T("ui.about"), () => { if (workspace != null) workspace.ShowAbout(this); else Dialogs.About(this); return Done(); });
             AddMenu(menu, L10n.T("ui.exit"), () => { if (workspace != null) workspace.Exit(); else Close(); return Done(); });
 
             var files = fileMenu;
