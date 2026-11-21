@@ -10,7 +10,7 @@ WSLBox displays WSL2 folders in transparent Windows desktop boxes. Browse Linux 
 
 ## Download and run
 
-Download **[WSLBox-v1.6.3.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
+Download **[WSLBox-v1.6.4.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
 
 Open **Folder settings**, choose a WSL distribution and the folder to display, and give the box a name.
 
@@ -57,6 +57,10 @@ Choose **System**, **简体中文** or **English** from **Language / 语言** in
 
 Enable **Start at login** in the tray or box menu to run WSLBox when you sign in to Windows. This option is off by default. Keep the EXE in a fixed location; turn the option off and on again after moving it.
 
+## Updates
+
+Open **About** to check for updates manually or enable automatic checks at startup. When a new version is available, choose **Update and restart** to install it as WSLBox.exe. If you enabled **Start at login**, WSLBox updates the startup shortcut as well.
+
 ## Common actions
 
 | Action | Shortcut or gesture |
@@ -100,7 +104,7 @@ If an application cannot start, open **Windows PowerShell** in the folder contai
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.6.3.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.6.4.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 

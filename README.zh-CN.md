@@ -10,7 +10,7 @@ WSLBox 是专为 WSL2 文件夹设计的 Windows 桌面盒子。在透明盒子�
 
 ## 下载与运行
 
-下载 **[WSLBox-v1.6.3.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
+下载 **[WSLBox-v1.6.4.exe](https://github.com/liunics/WSLBox/releases/latest)**，双击运行。
 
 打开“文件夹设置”，选择 WSL 发行版和要展示的文件夹，并为盒子设置名称。
 
@@ -57,6 +57,10 @@ sudo apt install python3 python3-gi gir1.2-gtk-3.0 dbus libglib2.0-bin libgdk-pi
 
 在托盘或盒子菜单开启“开机自启”，即可在登录 Windows 时自动运行 WSLBox。此选项默认关闭。请将 EXE 保存在固定位置；移动后，关闭并重新开启此选项。
 
+## 检查更新
+
+在“关于”中可手动检查更新，也可开启启动时自动检查。发现新版本后，选择“更新并重启”即可安装为 WSLBox.exe。如果已开启开机自启，WSLBox 也会更新启动快捷方式。
+
 ## 常用操作
 
 | 操作 | 方法 |
@@ -100,7 +104,7 @@ WSLBox 支持所选 Linux 发行版中已配置的 Fcitx、Fcitx5 和 IBus。在
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.6.3.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.6.4.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 

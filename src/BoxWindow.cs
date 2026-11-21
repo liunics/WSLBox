@@ -2217,6 +2217,7 @@ namespace WSLBox
             refreshTimer.Stop(); noticeTimer.Stop(); hoverTimer.Stop(); thumbnailTimer.Stop();
             captionPending = captionMoving = false; captionSnap = PointerSnap.None;
             WindowEffects.DisableTransitions(this);
+            WindowEffects.HideForClose(this);
             // Dispose the overlay before the owner is destroyed. A cached full-screen
             // preview must not remain visible during the owner's teardown/animation.
             if (snapPreview != null)

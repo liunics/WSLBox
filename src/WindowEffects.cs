@@ -98,6 +98,14 @@ namespace WSLBox
             SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, 0x0037); // Refresh the non-client frame.
         }
 
+        internal static void HideForClose(Window window)
+        {
+            IntPtr handle = new WindowInteropHelper(window).Handle;
+            if (handle == IntPtr.Zero) return;
+            const uint hideWithoutMovingOrActivating = 0x0097; // HIDEWINDOW | NOACTIVATE | NOZORDER | NOMOVE | NOSIZE
+            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, hideWithoutMovingOrActivating);
+        }
+
         internal static void DisableTransitions(Window window)
         {
             IntPtr handle = new WindowInteropHelper(window).Handle;
