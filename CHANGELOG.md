@@ -2,6 +2,11 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.6.5
+
+- Apply the Windows tool-window style to desktop boxes to keep them out of Snap Assist suggestions.
+- Use Linux GIO attributes to filter hidden files and editor backups, including entries listed in a directory’s .hidden file.
+
 ## 1.6.4
 
 - Fix an intermittent flash or jump toward the right edge of the screen when closing a box or exiting WSLBox.

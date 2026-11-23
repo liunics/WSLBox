@@ -90,6 +90,14 @@ namespace WSLBox
         private static extern int GetWindowLong(IntPtr window, int index);
         [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
         private static extern int SetWindowLong(IntPtr window, int index, int style);
+        internal static void SetToolWindow(IntPtr handle)
+        {
+            const int extendedStyle = -20, toolWindow = 0x00000080, appWindow = 0x00040000;
+            int style = GetWindowLong(handle, extendedStyle);
+            SetWindowLong(handle, extendedStyle, (style | toolWindow) & ~appWindow);
+            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, 0x0037); // Refresh the non-client frame without activation.
+        }
+
         internal static void DisableMinimize(Window window)
         {
             const int styleIndex = -16, minimizeBox = 0x00020000;

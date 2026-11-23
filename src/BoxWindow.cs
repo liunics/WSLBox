@@ -485,7 +485,11 @@ namespace WSLBox
             SourceInitialized += (s, e) =>
             {
                 var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
-                if (source != null) source.AddHook(HandleWindowMessage);
+                if (source != null)
+                {
+                    WindowEffects.SetToolWindow(source.Handle);
+                    source.AddHook(HandleWindowMessage);
+                }
                 RememberMonitor();
             };
             Closing += OnClosing;

@@ -323,11 +323,31 @@ def folder_path(value):
     return os.path.normpath(value)
 
 
+def hidden_names(path):
+    """Use the same file attributes as the GTK file chooser."""
+    try:
+        from gi.repository import Gio
+    except ImportError:
+        return set()
+
+    directory = Gio.File.new_for_path(path)
+    children = directory.enumerate_children(
+        "standard::name,standard::is-hidden,standard::is-backup",
+        Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+        None,
+    )
+    try:
+        return {info.get_name() for info in children if info.get_is_hidden() or info.get_is_backup()}
+    finally:
+        children.close(None)
+
+
 def scan_folder(path, show_hidden):
     entries = {}
     with os.scandir(path) as scan:
+        hidden = set() if show_hidden else hidden_names(path)
         for item in scan:
-            if not show_hidden and item.name.startswith("."):
+            if not show_hidden and (item.name.startswith(".") or item.name in hidden):
                 continue
             signature = None
             try:

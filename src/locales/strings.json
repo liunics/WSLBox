@@ -816,10 +816,6 @@
     "zh-CN": "WSLBox 启动失败",
     "en-US": "WSLBox startup failed"
   },
-  "ui.wslbox_desktop_folder_boxes": {
-    "zh-CN": "WSLBox · 桌面文件盒子",
-    "en-US": "WSLBox · Desktop folder boxes"
-  },
   "ui.show_all_boxes": {
     "zh-CN": "显示全部盒子",
     "en-US": "Show all boxes"

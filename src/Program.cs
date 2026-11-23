@@ -138,7 +138,7 @@ namespace WSLBox
             desktopToggle = new DesktopToggle(app.Dispatcher, ToggleDesktopBoxes);
             desktopToggle.Enabled = layout.DesktopDoubleClick != false;
             trayIcon = Branding.CreateTrayIcon();
-            tray = new Forms.NotifyIcon { Icon = trayIcon, Text = L10n.T("ui.wslbox_desktop_folder_boxes"), Visible = true };
+            tray = new Forms.NotifyIcon { Icon = trayIcon, Text = "WSLBox", Visible = true };
             var menu = new Forms.ContextMenuStrip();
             menu.Items.Add(L10n.T("ui.show_all_boxes"), null, (s, e) => ShowAll());
             var desktopOption = new Forms.ToolStripMenuItem(L10n.T("ui.double_click_desktop_to_hide_show")) {
