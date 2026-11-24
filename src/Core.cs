@@ -40,6 +40,13 @@ namespace WSLBox
     }
 
     [DataContract]
+    public sealed class WindowsMount
+    {
+        [DataMember] public string LinuxPath;
+        [DataMember] public string WindowsPath;
+    }
+
+    [DataContract]
     public sealed class Reply
     {
         [DataMember] public string Distro;
@@ -47,6 +54,8 @@ namespace WSLBox
         [DataMember(EmitDefaultValue = false)] public string User;
         [DataMember] public string[] Users;
         [DataMember] public string Path;
+        [DataMember(EmitDefaultValue = false)] public string ShellFolder;
+        [DataMember(EmitDefaultValue = false)] public WindowsMount[] WindowsMounts;
         [DataMember] public string Error;
         [DataMember(EmitDefaultValue = false)] public bool StartupFailed;
         [DataMember] public string InputMethodWarning;
@@ -241,13 +250,88 @@ namespace WSLBox
             return result.Append('"').ToString();
         }
 
-        public static string Unc(string distro, string linuxPath)
+        private static void ValidateDistribution(string distro)
         {
             if (String.IsNullOrWhiteSpace(distro) || distro.IndexOfAny(new[] { '\\', '/', '\0', '\r', '\n' }) >= 0)
                 throw new ArgumentException(L10n.T("ui.invalid_wsl_distribution_name"));
+        }
+
+        public static string Unc(string distro, string linuxPath)
+        {
+            ValidateDistribution(distro);
             if (String.IsNullOrEmpty(linuxPath) || linuxPath[0] != '/')
                 throw new ArgumentException(L10n.T("ui.enter_an_absolute_linux_path_starting_with"));
             return @"\\wsl.localhost\" + distro + "\\" + linuxPath.TrimStart('/').Replace('/', '\\');
+        }
+
+        internal static string FolderInput(string distro, string value)
+        {
+            ValidateDistribution(distro);
+            string path = (value ?? "").Trim();
+            if (path.IndexOfAny(new[] { '\0', '\r', '\n' }) >= 0)
+                throw new ArgumentException(L10n.T("ui.the_folder_path_contains_invalid_characters"));
+            if (path.StartsWith("/", StringComparison.Ordinal) && !path.StartsWith("//", StringComparison.Ordinal))
+                return path;
+
+            string windows = path.Replace('/', '\\');
+            string linux = SharedLinuxPath(distro, windows);
+            if (linux != null) return linux;
+            if (IsWsl(windows))
+                throw new ArgumentException(L10n.T("ui.this_folder_belongs_to_a_different_distribution_select_that_dist"));
+
+            bool drive = windows.Length >= 3 && ((windows[0] >= 'A' && windows[0] <= 'Z') ||
+                (windows[0] >= 'a' && windows[0] <= 'z')) && windows[1] == ':' && windows[2] == '\\';
+            if (drive) return Path.GetFullPath(windows);
+            if (windows.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                string[] parts = windows.Substring(2).Split(new[] { '\\' }, 3);
+                if (parts.Length >= 2 && parts[0].Length > 0 && parts[0] != "." && parts[0] != "?" && parts[1].Length > 0)
+                    return Path.GetFullPath(windows);
+            }
+            if (path.StartsWith("//", StringComparison.Ordinal)) return path;
+            throw new ArgumentException(L10n.T("ui.enter_absolute_folder_path"));
+        }
+
+        private static string SharedLinuxPath(string distro, string path)
+        {
+            if (!IsWsl(path)) return null;
+            string[] parts = path.Substring(2).Split(new[] { '\\' }, 3);
+            if (parts.Length < 2 || !String.Equals(parts[1], distro, StringComparison.OrdinalIgnoreCase)) return null;
+            return parts.Length == 3 ? "/" + parts[2].Replace('\\', '/') : "/";
+        }
+
+        private static bool IsUnder(string path, string root)
+        {
+            return path == root || path.StartsWith(root == "/" ? "/" : root + "/", StringComparison.Ordinal);
+        }
+
+        internal static string ShellPath(string distro, string linuxPath, Reply location)
+        {
+            if (location != null && location.WindowsMounts != null)
+            {
+                string physical = linuxPath;
+                if (!String.IsNullOrEmpty(location.ShellFolder) && location.ShellFolder != location.Path && IsUnder(linuxPath, location.Path))
+                {
+                    string relative = linuxPath.Substring(location.Path.Length).TrimStart('/');
+                    physical = relative.Length == 0 ? location.ShellFolder : location.ShellFolder.TrimEnd('/') + "/" + relative;
+                }
+                foreach (WindowsMount mount in location.WindowsMounts)
+                {
+                    if (!IsUnder(physical, mount.LinuxPath)) continue;
+                    if (mount.WindowsPath == null) break;
+                    string suffix = physical.Substring(mount.LinuxPath.Length).TrimStart('/');
+                    return suffix.Length == 0 ? mount.WindowsPath : Path.Combine(mount.WindowsPath, suffix.Replace('/', '\\'));
+                }
+            }
+            return Unc(distro, linuxPath);
+        }
+
+        internal static string NormalizeShellPath(string distro, string path, Reply location)
+        {
+            string linux = SharedLinuxPath(distro, path);
+            if (linux == null) return path;
+            string projected = ShellPath(distro, linux.Length > 1 ? linux.TrimEnd('/') : linux, location);
+            return IsWsl(projected) ? path : projected;
         }
 
         public static string Canonical(string path)
@@ -364,7 +448,7 @@ namespace WSLBox
             bool trashRead = command == "list-trash" || (command == "trash-folder" && path != null);
             string mode = trashRead ? "serve-open" : command == "thumbnails" ? "serve-thumbnails" : "serve-metadata";
             bool readOnly = trashRead || command == "list" || command == "list-icons" || command == "info"
-                || command == "folder-info" || command == "applications" || command == "thumbnails" || command == "users" || command == "trash-folder";
+                || command == "folder-info" || command == "windows-folder-info" || command == "applications" || command == "thumbnails" || command == "users" || command == "trash-folder";
             if (!readOnly) return Task.Run(() => Worker(distro, mode).Request(command, path));
             string key = distro + "\n" + linuxUser + "\n" + scriptKey + "\n" + command + "\n" + showHidden + "\n" + revision + "\n" + path;
             lock (workerLock)

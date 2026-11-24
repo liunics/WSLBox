@@ -53,19 +53,10 @@ namespace WSLBox
                     return distro == null ? null : distro.GetValue("DistributionName") as string;
             }
         }
-        public static string LinuxPath(string distro, string value)
+        public static Task<Reply> CheckFolder(WslClient client, string distro, string value)
         {
-            string path = (value ?? "").Trim();
-            if (Paths.IsWsl(path))
-            {
-                string[] parts = path.Substring(2).Split(new[] { '\\' }, 3);
-                if (parts.Length < 2 || !String.Equals(parts[1], distro, StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException(L10n.T("ui.this_folder_belongs_to_a_different_distribution_select_that_dist"));
-                path = parts.Length == 3 ? "/" + parts[2].Replace('\\', '/') : "/";
-            }
-            Paths.Unc(distro, path);
-            if (path.IndexOfAny(new[] { '\0', '\r', '\n' }) >= 0) throw new ArgumentException(L10n.T("ui.the_folder_path_contains_invalid_characters"));
-            return path;
+            string path = Paths.FolderInput(distro, value);
+            return client.Run(distro, path[0] == '/' ? "folder-info" : "windows-folder-info", path);
         }
     }
 
@@ -94,7 +85,7 @@ namespace WSLBox
     }
     internal static class FolderPicker
     {
-        public static string Pick(Window owner, string distro, string linuxPath)
+        public static string Pick(Window owner, string distro, string initialPath)
         {
             IFolderDialog dialog = null;
             IShellItem initial = null, selected = null;
@@ -105,7 +96,7 @@ namespace WSLBox
                 dialog.SetOptions(options | 0x20 | 0x40 | 0x800 | 0x02000000); // pick folders, filesystem, existing path, don't add to recent
                 dialog.SetTitle(L10n.F("settings.picker_title", distro));
                 dialog.SetOkButtonLabel(L10n.T("ui.select_folder"));
-                try { initial = ShellTransfer.CreateItem(Paths.Unc(distro, linuxPath)); }
+                try { initial = ShellTransfer.CreateItem(initialPath); }
                 catch (COMException) { initial = ShellTransfer.CreateItem(Paths.Unc(distro, "/")); }
                 dialog.SetFolder(initial);
                 int result = dialog.Show(new WindowInteropHelper(owner).Handle);
@@ -113,7 +104,7 @@ namespace WSLBox
                 Marshal.ThrowExceptionForHR(result);
                 dialog.GetResult(out selected);
                 IntPtr name; selected.GetDisplayName(0x80058000, out name); // SIGDN_FILESYSPATH
-                try { return WslSetup.LinuxPath(distro, Marshal.PtrToStringUni(name)); }
+                try { return Marshal.PtrToStringUni(name); }
                 finally { Marshal.FreeCoTaskMem(name); }
             }
             finally

@@ -36,8 +36,8 @@
     "en-US": "Transfer stopped. Some files may already have been transferred."
   },
   "ui.windows_access_as_default_user": {
-    "zh-CN": "资源管理器、Windows 右键菜单和拖放使用发行版默认用户的权限。",
-    "en-US": "File Explorer, Windows context menus and drag and drop use the distribution default user’s permissions."
+    "zh-CN": "Windows 文件操作使用当前 Windows 用户的权限。通过 WSL 共享路径访问时，使用发行版默认用户的权限。",
+    "en-US": "Windows file operations use your Windows account. Access through a WSL share uses the distribution’s default user."
   },
   "ui.default_linux_user": {
     "zh-CN": "发行版默认用户",
@@ -108,8 +108,8 @@
     "en-US": "Box name"
   },
   "ui.accepts_linux_paths_or_wsl_unc_paths_such_as_wsl_localhost_and_w": {
-    "zh-CN": "支持 Linux 路径，也可粘贴所选发行版的 \\\\wsl.localhost 或 \\\\wsl$ 路径。",
-    "en-US": "Accepts Linux paths or WSL UNC paths such as \\\\wsl.localhost and \\\\wsl$ for the selected distribution."
+    "zh-CN": "支持 Windows、Linux 和所选发行版的 WSL 共享路径。",
+    "en-US": "Accepts Windows and Linux paths, and WSL share paths for the selected distribution."
   },
   "ui.about": {
     "zh-CN": "关于",
@@ -119,9 +119,9 @@
     "zh-CN": "取消",
     "en-US": "Cancel"
   },
-  "ui.folder_selected_access_permissions_will_be_checked_when_you_conf": {
-    "zh-CN": "已选择文件夹；确定时会检查访问权限。",
-    "en-US": "Folder selected. Access permissions will be checked when you confirm."
+  "ui.folder_selected": {
+    "zh-CN": "已选择文件夹。",
+    "en-US": "Folder selected."
   },
   "ui.checking_the_folder": {
     "zh-CN": "正在检查文件夹…",
@@ -226,6 +226,14 @@
   "ui.enter_an_absolute_linux_path_starting_with": {
     "zh-CN": "请输入以 / 开头的 Linux 路径。",
     "en-US": "Enter an absolute Linux path starting with /."
+  },
+  "ui.enter_absolute_folder_path": {
+    "zh-CN": "请输入 Windows 或 Linux 的文件夹绝对路径。",
+    "en-US": "Enter an absolute Windows or Linux folder path."
+  },
+  "backend.windows_folder_not_mounted": {
+    "zh-CN": "所选 WSL 发行版未挂载这个 Windows 位置。请先挂载对应磁盘或网络共享，或选择其他文件夹。",
+    "en-US": "This Windows location is not mounted in the selected WSL distribution. Mount the drive or network share first, or choose another folder."
   },
   "ui.no_files_to_transfer": {
     "zh-CN": "没有要传输的文件。",
@@ -993,8 +1001,8 @@
     "en-US": "Language settings"
   },
   "settings.picker_title": {
-    "zh-CN": "选择 {0} 中的文件夹",
-    "en-US": "Choose a folder in {0}"
+    "zh-CN": "选择文件夹 · {0}",
+    "en-US": "Choose a folder · {0}"
   },
   "files.deleted_count": {
     "zh-CN": "{0} 项已永久删除。",

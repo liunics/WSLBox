@@ -89,8 +89,8 @@ window.WSLBOX_I18N = {
     "zh-CN": "让两边的工作流连起来"
   },
   "features.title": {
-    "en": "Files stay in Linux.<br>Work stays on your desktop.",
-    "zh-CN": "文件留在 Linux，<br/>操作就在桌面上。"
+    "en": "Folders from both systems.<br>One Windows desktop.",
+    "zh-CN": "两个系统的文件夹，<br/>一个 Windows 桌面。"
   },
   "features.0.title": {
     "en": "One folder. One box.",
@@ -197,8 +197,8 @@ window.WSLBOX_I18N = {
     "zh-CN": "在 Ubuntu / Debian 的终端执行。其他发行版需要对应的 GIO / GTK 软件包。"
   },
   "install.2.body": {
-    "en": "Download and run WSLBox. Choose a distribution and folder in Folder settings.",
-    "zh-CN": "下载并运行 WSLBox，在文件夹设置中选择发行版和目录。"
+    "en": "Download and run WSLBox. In Folder settings, choose a distribution and a Linux folder or a Windows folder it can access.",
+    "zh-CN": "下载并运行 WSLBox，在文件夹设置中选择发行版，再选择 Linux 文件夹或该发行版可访问的 Windows 文件夹。"
   },
   "install.3.body": {
     "en": "Install your Linux apps and configure their default file associations inside the distribution.",

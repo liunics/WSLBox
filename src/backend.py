@@ -5,6 +5,9 @@ import os
 import sys
 import base64
 import hashlib
+import ntpath
+import re
+import subprocess
 
 ICON_SIZE = 64
 
@@ -58,7 +61,6 @@ def private_bus(env, directory):
     """
     import fcntl
     import stat
-    import subprocess
     def secure_directory(path):
         os.makedirs(path, mode=0o700, exist_ok=True)
         info = os.lstat(path)
@@ -320,7 +322,88 @@ class LinuxIcons:
 def folder_path(value):
     if not value or not os.path.isabs(value):
         raise ValueError(tr("backend.enter_an_absolute_wsl_folder_path_starting_with"))
-    return os.path.normpath(value)
+    return "/" + os.path.normpath(value).lstrip("/")
+
+
+_mount_snapshot = (None, [])
+
+
+def windows_mounts():
+    """Read the actual DrvFs mount points and the mounts that cover them."""
+    global _mount_snapshot
+    try:
+        with open("/proc/self/mountinfo", encoding="utf-8", errors="surrogateescape") as mounts:
+            contents = mounts.read()
+    except OSError:
+        return []
+    if contents == _mount_snapshot[0]:
+        return _mount_snapshot[1]
+
+    def unescape(value):
+        return re.sub(r"\\([0-7]{3})", lambda match: chr(int(match[1], 8)), value)
+
+    points = {}
+    for line in contents.split("\n"):
+        mount, _, filesystem = line.partition(" - ")
+        fields, fs = mount.split(), filesystem.split()
+        if len(fields) < 5 or len(fs) < 3:
+            continue
+        root, point, source = map(unescape, (fields[3], fields[4], fs[1]))
+        options = fs[2].split(",")
+        windows = None
+        if fs[0] == "drvfs" or (fs[0] == "9p" and any(
+                "aname=drvfs" in option.split(";") for option in options)):
+            if ntpath.splitdrive(source)[0] and ntpath.isabs(source):
+                windows = ntpath.join(source, root.lstrip("/").replace("/", "\\")) if root != "/" else source
+        points[point] = windows
+    native_roots = [point for point, windows in points.items() if windows is not None]
+    result = [{"LinuxPath": point, "WindowsPath": windows}
+              for point, windows in points.items()
+              if windows is not None or any(path_under(point, root) for root in native_roots)]
+    result.sort(key=lambda mount: len(mount["LinuxPath"]), reverse=True)
+    _mount_snapshot = contents, result
+    return result
+
+
+def path_under(path, root):
+    return path == root or path.startswith(root.rstrip("/") + "/")
+
+
+def windows_folder(value):
+    """Resolve the Windows folder in this mount namespace before checking access."""
+    mounts = windows_mounts()
+    value = ntpath.normpath(value)
+    key = ntpath.normcase(value).rstrip("\\")
+    try:
+        result = subprocess.run(["/usr/bin/wslpath", "-a", "-u", value], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True, timeout=3)
+        path = folder_path(os.fsdecode(result.stdout).rstrip("\n"))
+    except (OSError, subprocess.SubprocessError, ValueError):
+        path = None
+
+    # wslpath can suggest a path on an unmounted drive. Confirm its mount, and
+    # also handle manually mounted shares that wslpath cannot translate.
+    if path is not None:
+        mount = next((m for m in mounts if path_under(path, m["LinuxPath"])), None)
+        if mount and mount["WindowsPath"]:
+            suffix = path[len(mount["LinuxPath"]):].lstrip("/").replace("/", "\\")
+            if ntpath.normcase(ntpath.join(mount["WindowsPath"], suffix)).rstrip("\\") == key:
+                return path
+    for mount in mounts:
+        if not mount["WindowsPath"]:
+            continue
+        native_root = mount["WindowsPath"].rstrip("\\")
+        root = ntpath.normcase(native_root)
+        if key == root or key.startswith(root + "\\"):
+            path = os.path.join(mount["LinuxPath"], value[len(native_root):].lstrip("\\").replace("\\", "/"))
+            path = folder_path(path)
+            if next(m for m in mounts if path_under(path, m["LinuxPath"])) is mount:
+                return path
+    raise ValueError(tr("backend.windows_folder_not_mounted"))
+
+
+def folder_location(path):
+    return {"Path": path, "ShellFolder": os.path.realpath(path), "WindowsMounts": windows_mounts()}
 
 
 def hidden_names(path):
@@ -386,7 +469,7 @@ def list_folder(value, thumbnails=True, show_hidden=False, previous=None, revisi
     else:
         images = []
     changes.sort(key=lambda item: (not item["IsDirectory"], item["Name"].casefold(), item["Name"]))
-    reply = {"Path": path, "Entries": changes, "Icons": images}
+    reply = dict(folder_location(path), Entries=changes, Icons=images)
     if previous is not None:
         reply["RemovedPaths"] = list(previous.keys() - scanned.keys())
     if revision is not None:
@@ -919,13 +1002,13 @@ def main(argv, show_hidden=False):
             path = trash_local_path(kind, parts, item)
         if not path or not os.path.isdir(path):
             raise ValueError(tr("backend.trash_folder_missing"))
-        return {"Path": path}
+        return folder_location(path)
     if command == "info":
         import pwd
         return {"Distro": os.environ.get("WSL_DISTRO_NAME", ""),
                 "Home": os.path.expanduser("~"), "User": pwd.getpwuid(os.geteuid()).pw_name}
-    if command == "folder-info" and len(argv) == 2:
-        path = folder_path(argv[1])
+    if command in ("folder-info", "windows-folder-info") and len(argv) == 2:
+        path = windows_folder(argv[1]) if command == "windows-folder-info" else folder_path(argv[1])
         try:
             with os.scandir(path) as scan:
                 next(scan, None)
@@ -935,7 +1018,7 @@ def main(argv, show_hidden=False):
             raise ValueError(tr("backend.the_selected_path_is_not_a_folder"))
         except PermissionError:
             raise ValueError(tr("backend.you_do_not_have_permission_to_read_this_folder_choose_an_accessi"))
-        return {"Path": path}
+        return folder_location(path)
     if command == "list" and len(argv) == 2:
         return list_folder(argv[1], show_hidden=show_hidden)
     if command == "list-icons" and len(argv) == 2:
@@ -999,7 +1082,7 @@ def serve_open():
 def serve_metadata(thumbnails=False):
     """Warm file operations; never activate GUI apps on the icon environment."""
     from gi.repository import GLib
-    allowed = {"thumbnails"} if thumbnails else {"info", "folder-info", "list", "list-icons", "applications", "rename", "mkdir", "trash", "users", "trash-folder"}
+    allowed = {"thumbnails"} if thumbnails else {"info", "folder-info", "windows-folder-info", "list", "list-icons", "applications", "rename", "mkdir", "trash", "users", "trash-folder"}
     import uuid
     snapshots = {}
     requests = 0

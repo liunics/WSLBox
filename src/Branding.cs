@@ -8,8 +8,8 @@ namespace WSLBox
 {
     internal static class Branding
     {
-        public const string Version = "1.6.5";
-        public const string AssemblyVersion = "1.6.5.0";
+        public const string Version = "1.7.0";
+        public const string AssemblyVersion = "1.7.0.0";
         private static ImageSource image;
         public static ImageSource Image
         {

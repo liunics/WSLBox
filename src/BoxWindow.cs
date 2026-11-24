@@ -113,6 +113,7 @@ namespace WSLBox
         private Matrix captionTransform;
         private Point captionDevice;
         private string currentFolder;
+        private Reply folderLocation;
         private SnapPreview snapPreview;
         private InlineRename renameEditor;
         private int thumbnailGeneration, thumbnailViewport;
@@ -302,18 +303,13 @@ namespace WSLBox
                 var button = new Button();
                 ConfigureCategoryButton(button, key, filter[1]);
                 button.Visibility = key == "all" ? Visibility.Visible : Visibility.Collapsed;
-                button.Click += (s, e) =>
+                button.Click += async (s, e) =>
                 {
                     if (busy || closing) return;
-                    if (showingTrash)
-                    {
-                        SetTrashVisible(false);
-                        history.Record(currentFolder);
-                        UpdateHistoryButtons();
-                    }
                     settings.Filter = key;
                     ApplyFilter();
-                    Persist();
+                    if (showingTrash) await Navigate(currentFolder);
+                    else Persist();
                 };
                 filters.Children.Add(button);
             }
@@ -865,14 +861,14 @@ namespace WSLBox
                 return;
             }
             if (busy || !initialized) return;
-            string[] paths = selected.Select(m => Paths.Unc(settings.Distro, m.Path)).ToArray();
+            string[] paths = selected.Select(m => ShellPath(m.Path)).ToArray();
             string terminalFolder = SelectedTerminalFolder(selected);
             ShellMenuAction action = ShellMenuAction.None;
             bool failed = false;
             contextOpen = true;
             try
             {
-                action = ShellContextMenu.Show(this, screen, paths, Paths.Unc(settings.Distro, currentFolder), terminalFolder != null);
+                action = ShellContextMenu.Show(this, screen, paths, ShellPath(currentFolder), terminalFolder != null);
             }
             catch (ShellMenuInvocationException ex)
             {
@@ -1496,6 +1492,7 @@ namespace WSLBox
         {
             if (currentFolder != reply.Path) ++thumbnailGeneration;
             currentFolder = reply.Path;
+            folderLocation = new Reply { Path = reply.Path, ShellFolder = reply.ShellFolder, WindowsMounts = reply.WindowsMounts };
             if (String.IsNullOrEmpty(settings.Folder)) settings.Folder = reply.Path;
             folderRevision = reply.Revision;
             Entry[] entries = reply.Entries ?? new Entry[0];
@@ -1733,6 +1730,13 @@ namespace WSLBox
         private async Task<bool> Navigate(string path, int historyStep = 0)
         {
             if (busy || !initialized || closing) return false;
+            if (showingTrash && path == currentFolder && listedEntries != null)
+            {
+                SetTrashVisible(false);
+                CompleteNavigation(currentFolder, historyStep, models.Count);
+                await RefreshFolder(false);
+                return true;
+            }
             busy = true; Notify(L10n.T("ui.opening_the_folder"), false);
             try
             {
@@ -1748,15 +1752,23 @@ namespace WSLBox
                     SetTrashVisible(false);
                     ShowEntries(reply);
                 }
-                if (historyStep < 0) history.CommitBack();
-                else if (historyStep > 0) history.CommitForward();
-                else history.Record(trash ? path : reply.Path);
-                UpdateHistoryButtons();
-                Persist(); Notify((reply.Entries ?? new Entry[0]).Length + L10n.T("ui.items")); return true;
+                CompleteNavigation(trash ? path : reply.Path, historyStep, (reply.Entries ?? new Entry[0]).Length);
+                return true;
             }
             catch (Exception ex) { Report(ex); return false; }
             finally { busy = false; }
         }
+
+        private void CompleteNavigation(string path, int historyStep, int count)
+        {
+            if (historyStep < 0) history.CommitBack();
+            else if (historyStep > 0) history.CommitForward();
+            else history.Record(path);
+            UpdateHistoryButtons();
+            Persist();
+            Notify(count + L10n.T("ui.items"));
+        }
+
         private void UpdateHistoryButtons()
         {
             backButton.IsEnabled = history.BackTarget != null;
@@ -2028,11 +2040,18 @@ namespace WSLBox
             catch (Exception ex) { Report(ex); }
             finally { opening = false; }
         }
+        private string ShellPath(string linuxPath) { return Paths.ShellPath(settings.Distro, linuxPath, folderLocation); }
+
+        private string[] NormalizeShellPaths(string[] paths)
+        {
+            return paths == null ? null : paths.Select(path => Paths.NormalizeShellPath(settings.Distro, path, folderLocation)).ToArray();
+        }
+
         private string[] SelectedPaths()
         {
             FileModel[] selected = list.SelectedItems.Cast<FileModel>().ToArray();
             if (selected.Any(m => m.Entry.IsLink)) throw new IOException(L10n.T("ui.transfer_symbolic_links_within_linux_to_preserve_their_semantics"));
-            return selected.Select(m => Paths.Unc(settings.Distro, m.Path)).ToArray();
+            return selected.Select(m => ShellPath(m.Path)).ToArray();
         }
         private static DragDropEffects DropEffect(DragDropKeyStates keys, DragDropEffects allowed)
         {
@@ -2057,7 +2076,7 @@ namespace WSLBox
             catch (System.Runtime.InteropServices.ExternalException) { return DragDropEffects.None; }
 
             target = DropTarget(e.GetPosition(list), out folder);
-            return Paths.CanDrop(paths, Paths.Unc(settings.Distro, target), effect == DragDropEffects.Move)
+            return Paths.CanDrop(NormalizeShellPaths(paths), ShellPath(target), effect == DragDropEffects.Move)
                 ? effect : DragDropEffects.None;
         }
         private string DropTarget(Point position, out FileModel folder)
@@ -2105,11 +2124,11 @@ namespace WSLBox
         private async Task<bool> Transfer(string[] sources, string target, bool move)
         {
             if (busy || !initialized) return false;
-            string destination = Paths.Unc(settings.Distro, target);
+            string destination = ShellPath(target);
             busy = true; Notify(move ? L10n.T("ui.moving_check_the_windows_file_operation_dialog") : L10n.T("ui.copying_check_the_windows_file_operation_dialog"), false);
             bool complete = false;
             Exception error = null;
-            try { complete = await ShellTransfer.Run(new WindowInteropHelper(this).Handle, sources, destination, move); }
+            try { complete = await ShellTransfer.Run(new WindowInteropHelper(this).Handle, NormalizeShellPaths(sources), destination, move); }
             catch (Exception ex) { error = ex; }
             finally { busy = false; }
             await RefreshFolder(false);
@@ -2184,7 +2203,7 @@ namespace WSLBox
                 string directory = trashDirectory;
                 Reply reply = await client.Run(distro, "trash-folder", directory);
                 if (!closing && showingTrash && client == wsl && directory == trashDirectory)
-                    Process.Start("explorer.exe", Paths.Quote(Paths.Unc(distro, reply.Path)));
+                    Process.Start("explorer.exe", Paths.Quote(Paths.ShellPath(distro, reply.Path, reply)));
             }
             catch (Exception ex) { if (!closing && showingTrash && client == wsl) Report(ex); }
         }
@@ -2209,7 +2228,7 @@ namespace WSLBox
         private void Reveal()
         {
             if (!initialized) return;
-            try { Process.Start("explorer.exe", Paths.Quote(Paths.Unc(settings.Distro, currentFolder))); }
+            try { Process.Start("explorer.exe", Paths.Quote(ShellPath(currentFolder))); }
             catch (Exception ex) { Report(ex); }
         }
         internal void PrepareForClose()

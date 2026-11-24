@@ -92,17 +92,38 @@ namespace WSLBox
                 {
                     if (String.IsNullOrWhiteSpace(folder.Text)) await HomeFolder();
                     if (closed) return;
-                    string selected = FolderPicker.Pick(this, Distro, WslSetup.LinuxPath(Distro, folder.Text));
-                    if (selected != null) { folder.Text = selected; Message(L10n.T("ui.folder_selected_access_permissions_will_be_checked_when_you_conf"), false); }
+                    SetWorking(true);
+                    var selectedClient = new WslClient(backendPath, LinuxUser);
+                    string initial = Paths.Unc(Distro, "/");
+                    try
+                    {
+                        string pathInput = Paths.FolderInput(Distro, Folder);
+                        if (pathInput[0] == '/')
+                        {
+                            Reply initialLocation = await WslSetup.CheckFolder(selectedClient, Distro, pathInput);
+                            initial = Paths.ShellPath(Distro, initialLocation.Path, initialLocation);
+                        }
+                        else initial = pathInput;
+                    }
+                    catch (ArgumentException) { /* An invalid starting path can be repaired in the picker. */ }
+                    catch (System.IO.IOException) { /* Use the distribution root if the folder cannot be read. */ }
+                    if (closed) return;
+                    string selected = FolderPicker.Pick(this, Distro, initial);
+                    if (selected == null) return;
+                    Message(L10n.T("ui.checking_the_folder"), false);
+                    Reply location = await WslSetup.CheckFolder(selectedClient, Distro, selected);
+                    if (closed) return;
+                    folder.Text = location.Path;
+                    Message(L10n.T("ui.folder_selected"), false);
                 }
-                catch (Exception ex) { Message(ex.Message, true); }
+                catch (Exception ex) { if (!closed) Message(ex.Message, true); }
+                finally { if (!closed) SetWorking(false); }
             };
             ok.Click += async (sender, e) => {
                 try
                 {
-                    string selected = WslSetup.LinuxPath(Distro, Folder);
                     SetWorking(true); Message(L10n.T("ui.checking_the_folder"), false);
-                    Reply reply = await new WslClient(backendPath, LinuxUser).Run(Distro, "folder-info", selected);
+                    Reply reply = await WslSetup.CheckFolder(new WslClient(backendPath, LinuxUser), Distro, Folder);
                     if (closed) return;
                     folder.Text = reply.Path; DialogResult = true;
                 }

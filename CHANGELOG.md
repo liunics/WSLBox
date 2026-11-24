@@ -2,6 +2,11 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.7.0
+
+- Choose a Windows folder directly in Folder settings. The box uses the selected WSL distribution and its default Linux apps to open files.
+- Return from Trash to the folder you were browsing without waiting for the file list to reload.
+
 ## 1.6.5
 
 - Apply the Windows tool-window style to desktop boxes to keep them out of Snap Assist suggestions.
