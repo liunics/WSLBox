@@ -7,7 +7,9 @@ import base64
 import hashlib
 import ntpath
 import re
+import signal
 import subprocess
+import tempfile
 
 ICON_SIZE = 64
 
@@ -37,14 +39,72 @@ _wslg_session_ready = False
 _input_method_session = None
 
 
+_desktop_session_keys = {
+    "GDK_BACKEND", "QT_QPA_PLATFORM", "WAYLAND_SOCKET", "XAUTHORITY",
+    "DBUS_SESSION_BUS_ADDRESS", "DBUS_SESSION_BUS_PID", "DBUS_SESSION_BUS_WINDOWID",
+    "DBUS_STARTER_ADDRESS", "DBUS_STARTER_BUS_TYPE", "SESSION_MANAGER",
+    "DESKTOP_AUTOSTART_ID", "DESKTOP_SESSION", "XDG_SEAT", "XDG_SEAT_PATH",
+    "XDG_VTNR", "XDG_CURRENT_DESKTOP", "GNOME_KEYRING_CONTROL",
+}
+
+
+def desktop_session_variable(key):
+    return key in _desktop_session_keys or key.startswith(("XRDP_", "XDG_SESSION_"))
+
+
+def login_environment(source):
+    """Read exported variables without letting profile output enter the worker protocol."""
+    from pwd import getpwuid
+    try:
+        user = getpwuid(os.getuid())
+        if not user.pw_shell:
+            return {}
+        with tempfile.TemporaryFile() as output:
+            fd = output.fileno()
+            capture = 'import os,sys;os.fdopen(int(sys.argv[1]),"wb").write(b"\\0".join(k+b"="+v for k,v in os.environb.items()))'
+            command = "/usr/bin/python3 -IS -c '" + capture + "' " + str(fd)
+            with subprocess.Popen([user.pw_shell, "-l", "-c", command], cwd=user.pw_dir, env=source,
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                  pass_fds=(fd,), start_new_session=True) as shell:
+                try:
+                    if shell.wait(timeout=3) != 0:
+                        return {}
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(shell.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    return {}
+            output.seek(0)
+            limit = 256 * 1024
+            data = output.read(limit + 1)
+        if len(data) > limit:
+            return {}
+        pairs = (item.partition(b"=") for item in data.split(b"\0"))
+        return {os.fsdecode(key): os.fsdecode(value) for key, separator, value in pairs if separator}
+    except (OSError, KeyError):
+        return {}
+
+
+def application_environment(source):
+    base = wslg_environment(source)
+    # File operations and application lookup must agree on XDG storage, while
+    # the graphical transport must always use the WSLg session.
+    protected = {
+        "HOME", "USER", "LOGNAME", "SHELL", "PWD", "OLDPWD", "SHLVL", "_",
+        "DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "PULSE_SERVER",
+        "PULSE_COOKIE", "PIPEWIRE_REMOTE", "XDG_DATA_HOME", "XDG_CONFIG_HOME",
+        "XDG_DATA_DIRS", "XDG_CONFIG_DIRS", "XDG_CACHE_HOME", "XDG_STATE_HOME",
+        "WSLENV", "WSL_DISTRO_NAME", "WSL_INTEROP", "WSLBOX_LANGUAGE",
+    }
+    login = login_environment(base)
+    base.update((key, value) for key, value in login.items()
+                if key not in protected and not desktop_session_variable(key) and not key.startswith("BASH_FUNC_"))
+    return base
+
+
 def wslg_environment(source):
-    env = dict(source)
-    for key in ("GDK_BACKEND", "QT_QPA_PLATFORM", "WAYLAND_SOCKET", "XAUTHORITY",
-                "DBUS_SESSION_BUS_ADDRESS", "DBUS_STARTER_ADDRESS", "DBUS_STARTER_BUS_TYPE",
-                "SESSION_MANAGER", "DESKTOP_AUTOSTART_ID", "XDG_SESSION_ID",
-                "XDG_SESSION_PATH", "XDG_SEAT_PATH", "XDG_SESSION_DESKTOP",
-                "XDG_CURRENT_DESKTOP", "GNOME_KEYRING_CONTROL"):
-        env.pop(key, None)
+    env = {key: value for key, value in source.items() if not desktop_session_variable(key)}
     env["DISPLAY"] = ":0"
     env["WAYLAND_DISPLAY"] = "/mnt/wslg/runtime-dir/wayland-0"
     env["XDG_RUNTIME_DIR"] = "/run/user/" + str(os.getuid()) + "/wslbox-session-v2/runtime"
@@ -114,6 +174,32 @@ def private_bus(env, directory):
     return address
 
 
+def update_activation_environment(env):
+    """Update only the private bus, without exposing variables in command arguments."""
+    from gi.repository import Gio, GLib
+    values = dict.fromkeys(InputMethodSession.IM_KEYS, "")
+    for key, value in env.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            continue
+        try:
+            value.encode("utf-8")
+        except UnicodeError:
+            continue
+        values[key] = value
+    try:
+        flags = Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION
+        connection = Gio.DBusConnection.new_for_address_sync(env["DBUS_SESSION_BUS_ADDRESS"], flags, None, None)
+        try:
+            connection.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                                 "UpdateActivationEnvironment", GLib.Variant("(a{ss})", (values,)),
+                                 None, Gio.DBusCallFlags.NONE, 2000, None)
+        finally:
+            connection.close_sync(None)
+        return True
+    except GLib.Error:
+        return False
+
+
 def session_runtime(env):
     """Use a private fallback when a distro has no systemd user runtime."""
     import stat
@@ -133,25 +219,27 @@ def session_runtime(env):
     return os.path.join(base, "session-v2", "runtime")
 
 
-def ensure_wslg_session():
+def ensure_wslg_session(prepare_apps=True):
     global _wslg_session_ready, _input_method_session
     if _wslg_session_ready:
         if _input_method_session is not None:
             _input_method_session.ensure(dict(os.environ), os.environ['XDG_RUNTIME_DIR'])
         return
-    env = wslg_environment(os.environ)
     if not os.path.exists("/mnt/wslg/.X11-unix/X0"):
         raise RuntimeError(tr("backend.wslg_display_services_were_not_found_enable_wslg_in_windows"))
-    _input_method_session = InputMethodSession(env)
-    env = _input_method_session.environment(env)
+    env = application_environment(os.environ) if prepare_apps else wslg_environment(os.environ)
+    if prepare_apps:
+        _input_method_session = InputMethodSession(env)
+        env = _input_method_session.environment(env)
     runtime = session_runtime(env)
     env["XDG_RUNTIME_DIR"] = runtime
     env["DBUS_SESSION_BUS_ADDRESS"] = private_bus(env, os.path.dirname(runtime))
-    _input_method_session.update_activation(env)
-    _input_method_session.ensure(env, runtime)
     # Set before importing GIO: its default session-bus connection is cached.
     os.environ.clear()
     os.environ.update(env)
+    if _input_method_session is not None:
+        _input_method_session.activation_failed = not update_activation_environment(env)
+        _input_method_session.ensure(env, runtime)
     _wslg_session_ready = True
 
 
@@ -1030,9 +1118,9 @@ def main(argv, show_hidden=False):
     raise ValueError("Unknown command or missing path")
 
 
-def serve_open():
-    """A private stdin/stdout request channel for warmed file opening only."""
-    ensure_wslg_session()
+def serve_open(trash_read=False):
+    """A private stdin/stdout request channel for warmed file opening and trash operations."""
+    ensure_wslg_session(prepare_apps=not trash_read)
     from gi.repository import Gio, GLib
     print(json.dumps({"Ready": True, "Pid": os.getpid()}), flush=True)
     for line in sys.stdin:
@@ -1044,6 +1132,8 @@ def serve_open():
             if not isinstance(request, dict):
                 raise ValueError("Invalid open request")
             command = request.get("Command", "open")
+            if trash_read and command not in ("list-trash", "trash-folder"):
+                raise ValueError("Invalid trash read request")
             use_x11 = request.get("UseX11", False)
             if not isinstance(use_x11, bool):
                 raise ValueError("Invalid X11 launch flag")
@@ -1060,6 +1150,9 @@ def serve_open():
                 else:
                     response = change_trash(command, path)
                 print(json.dumps(response, ensure_ascii=False), flush=True)
+                continue
+            if command == "applications" and isinstance(request.get("Path"), str):
+                print(json.dumps(linux_applications(request["Path"]), ensure_ascii=False), flush=True)
                 continue
             if command != "open" or not isinstance(request.get("Path"), str):
                 raise ValueError("Invalid open request")
@@ -1129,11 +1222,11 @@ def serve_metadata(thumbnails=False):
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] in (["serve-open"], ["serve-metadata"], ["serve-thumbnails"]):
+    if sys.argv[1:] in (["serve-open"], ["serve-open", "--trash-read"], ["serve-metadata"], ["serve-thumbnails"]):
         try:
             mode = sys.argv[1]
             if mode == "serve-open":
-                serve_open()
+                serve_open(trash_read=len(sys.argv) == 3)
             else:
                 serve_metadata(mode == "serve-thumbnails")
         except Exception as exc:

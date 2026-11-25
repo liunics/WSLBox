@@ -27,18 +27,20 @@ namespace WSLBox
     {
         private readonly object gate = new object(), lifetime = new object();
         private readonly string distro, script, mode, linuxUser;
+        private readonly bool trashRead;
         private Process process;
         private Task<string> errors;
         private volatile bool disposed;
         private long lastActivity;
         private int linuxPid;
         public int BackendPid { get { lock (lifetime) return linuxPid; } }
-        public OpenWorker(string distro, string script, string mode = "serve-open", string linuxUser = null)
+        public OpenWorker(string distro, string script, string mode = "serve-open", string linuxUser = null, bool trashRead = false)
         {
             this.distro = distro;
             this.script = script;
             this.mode = mode;
             this.linuxUser = linuxUser;
+            this.trashRead = trashRead;
         }
         public void Warmup() { lock (gate) EnsureStarted(); }
         private Reply ReadReply(Process current, Task<string> stderr, int timeout)
@@ -68,7 +70,7 @@ namespace WSLBox
             }
             Stop();
             string arguments = WslClient.LaunchOptions(distro, linuxUser);
-            arguments += "--exec /usr/bin/python3 -u -X utf8 -c " + Paths.Quote(WslClient.Bootstrap) + " " + mode;
+            arguments += "--exec /usr/bin/python3 -u -X utf8 -c " + Paths.Quote(WslClient.Bootstrap) + " " + mode + (trashRead ? " --trash-read" : "");
             Process started = Process.Start(new ProcessStartInfo("wsl.exe", arguments) {
                 UseShellExecute = false, CreateNoWindow = true,
                 RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,

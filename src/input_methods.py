@@ -20,7 +20,7 @@ class InputMethodSession:
         self.provider, self.state = self._select()
         self.warning = None
         self._next_check = 0
-        self._activation_warning = False
+        self.activation_failed = False
 
     def _configured(self):
         for path in (self.home / '.xinputrc', Path('/etc/X11/xinit/xinputrc')):
@@ -45,7 +45,8 @@ class InputMethodSession:
             if configured in ('fcitx', 'fcitx5'): return configured, 'selected'
             active = {p['provider'] for p in self._running() if p['provider'].startswith('fcitx')}
             if len(active) == 1: return active.pop(), 'selected'
-            return ('fcitx5' if shutil.which('fcitx5') and not shutil.which('fcitx') else 'fcitx'), 'selected'
+            path = self.source.get('PATH')
+            return ('fcitx5' if shutil.which('fcitx5', path=path) and not shutil.which('fcitx', path=path) else 'fcitx'), 'selected'
         if family == 'ibus': return 'ibus', 'selected'
         if configured in self.PROVIDERS: return configured, 'selected'
         if configured in ('none', 'disable'): return None, 'disabled'
@@ -92,19 +93,6 @@ class InputMethodSession:
                 if not result.get(key): result[key] = value
         return result
 
-    def update_activation(self, env):
-        """Refresh only this private bus, including when it predates IM setup."""
-        values = {key: env.get(key, '') for key in self.IM_KEYS}
-        import json
-        try:
-            result = subprocess.run(['/usr/bin/gdbus', 'call', '--address', env['DBUS_SESSION_BUS_ADDRESS'],
-                '--dest', 'org.freedesktop.DBus', '--object-path', '/org/freedesktop/DBus',
-                '--method', 'org.freedesktop.DBus.UpdateActivationEnvironment', json.dumps(values)],
-                env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=2)
-            self._activation_warning = result.returncode != 0
-        except (OSError, subprocess.TimeoutExpired):
-            self._activation_warning = True
-
     def ensure(self, env, runtime):
         """Bounded checks, one cross-worker startup lock, no shell/profile execution."""
         now = time.monotonic()
@@ -115,7 +103,7 @@ class InputMethodSession:
             if self.state != 'disabled': self.warning = 'unconfigured'
             return self.status()
         command, arguments = self.PROVIDERS[self.provider]
-        executable = shutil.which(command)
+        executable = shutil.which(command, path=env.get('PATH'))
         if not executable:
             self.state = 'missing'; self.warning = 'missing'
             return self.status()
@@ -154,4 +142,4 @@ class InputMethodSession:
 
     def status(self):
         return {'provider': self.provider, 'state': self.state,
-                'warning': None if self.state == 'disabled' else (self.warning or ('activation' if self._activation_warning else None))}
+                'warning': None if self.state == 'disabled' else (self.warning or ('activation' if self.activation_failed else None))}

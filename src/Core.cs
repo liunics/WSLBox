@@ -446,7 +446,8 @@ namespace WSLBox
             if (command == "delete-permanently" || (command == "info" && String.IsNullOrWhiteSpace(distro)))
                 return RunOneShot(distro, command, path);
             bool trashRead = command == "list-trash" || (command == "trash-folder" && path != null);
-            string mode = trashRead ? "serve-open" : command == "thumbnails" ? "serve-thumbnails" : "serve-metadata";
+            string mode = trashRead || command == "applications" ? "serve-open"
+                : command == "thumbnails" ? "serve-thumbnails" : "serve-metadata";
             bool readOnly = trashRead || command == "list" || command == "list-icons" || command == "info"
                 || command == "folder-info" || command == "windows-folder-info" || command == "applications" || command == "thumbnails" || command == "users" || command == "trash-folder";
             if (!readOnly) return Task.Run(() => Worker(distro, mode).Request(command, path));
@@ -476,7 +477,7 @@ namespace WSLBox
             {
                 if (workersClosing) throw new ObjectDisposedException("WslClient");
                 OpenWorker worker;
-                if (!workers.TryGetValue(key, out worker)) { worker = new OpenWorker(distro, script, mode, linuxUser); workers.Add(key, worker); }
+                if (!workers.TryGetValue(key, out worker)) { worker = new OpenWorker(distro, script, mode, linuxUser, trashRead); workers.Add(key, worker); }
                 if (mode != "serve-open" && idleTimer == null) idleTimer = new System.Threading.Timer(SweepIdleWorkers, null, 30000, 30000);
                 return worker;
             }
