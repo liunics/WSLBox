@@ -10,7 +10,7 @@ WSLBox displays WSL2 folders in transparent Windows desktop boxes. Browse Linux 
 
 ## Download and run
 
-Download **[WSLBox-v1.7.1.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
+Download **[WSLBox-v1.7.2.exe](https://github.com/liunics/WSLBox/releases/latest)** and double-click to run it.
 
 Open **Folder settings**, choose a WSL distribution and the folder to display, and give the box a name. You can also choose or paste a Windows folder path if the selected distribution can access it.
 
@@ -104,7 +104,7 @@ If an application cannot start, open **Windows PowerShell** in the folder contai
 
 ```powershell
 $report = Join-Path $env:TEMP "wslbox-check.json"
-Start-Process ".\WSLBox-v1.7.1.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
+Start-Process ".\WSLBox-v1.7.2.exe" -ArgumentList @("--diagnose", "`"$report`"") -Wait
 (Get-Content $report -Raw | ConvertFrom-Json).Checks | Format-Table Name, Ok, Required, Details -Wrap
 ```
 

@@ -2,6 +2,10 @@
 
 **English** · [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.7.2
+
+- Fix boxes set to Keep at bottom sometimes appearing above other windows after a monitor is disconnected or reconnected.
+
 ## 1.7.1
 
 - Fix Linux apps being unable to find external tools or read settings configured in the login environment. Apps opened from WSLBox now inherit login environment variables while continuing to use WSLg.

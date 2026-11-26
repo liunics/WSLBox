@@ -973,6 +973,8 @@ namespace WSLBox
 
         internal bool RepositionAfterDisplayChange(System.Windows.Forms.Screen[] screens)
         {
+            // The shell can change the stacking order even when the bounds already match.
+            QueueBottomPlacement();
             if (closing || lastMonitor == null) return false;
             var reconnected = disconnectedMonitor == null ? null
                 : screens.FirstOrDefault(screen => screen.DeviceName == disconnectedMonitor);
